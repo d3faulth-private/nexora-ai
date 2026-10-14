@@ -27,6 +27,7 @@ GOOGLE_CLIENT_ID=<OAuth client>
 GOOGLE_CLIENT_SECRET=<OAuth secret>
 GOOGLE_REDIRECT_URI=https://your-domain.example/api/connectors/google/callback
 ALLOWED_HOSTS=your-domain.example
+GMAIL_POLL_SECONDS=60
 ```
 
 Generate a connector encryption key:
