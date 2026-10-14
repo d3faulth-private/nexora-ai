@@ -1,6 +1,6 @@
 [project]
 name = "nexora-ai"
-version = "0.3.0"
+version = "0.4.0"
 description = "Nexora AI - AI workforce operating system for service businesses"
 requires-python = ">=3.11"
 dependencies = [
@@ -29,3 +29,7 @@ dev = [
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
+
+[project.scripts]
+nexora = "d3terminal.__main__:main"
+d3terminal = "d3terminal.__main__:main"
