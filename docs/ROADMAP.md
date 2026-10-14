@@ -1,60 +1,64 @@
 # Nexora AI Roadmap
 
-## v0.2 — current advanced MVP
+## v0.3 — validated integration foundation
 
-- multi-workspace schema
+- HVAC onboarding
 - six-agent workforce
-- authentication
-- lead CRM
-- conversation routing
-- appointment proposals
-- tasks
-- knowledge base
-- approval engine
-- connector abstraction
-- audit trail
-- model provider abstraction
-- Docker / PostgreSQL
-- automated tests
-
-## v0.3 — real integrations
-
-- Google / Microsoft email
-- Google / Microsoft calendar
+- human takeover
+- Google OAuth / Gmail / Calendar
 - HubSpot
-- generic webhook connector
-- OAuth credential vault
-- retry / idempotency system
-- connector health dashboard
+- signed webhook
+- encrypted connector secrets
+- background follow-up jobs
+- external intake API
+- approval engine
+- CI
 
-## v0.4 — communication
+## v0.4-commercial — first revenue-focused build
 
-- SMS provider
-- WhatsApp provider
+- D3FAULTH operator terminal
+- graceful terminal shutdown
+- `status`, `doctor`, `why`, `revenue`, and `opportunities`
+- managed local `serve` / `stop` / `restart`
+- booked revenue attribution
+- completed job revenue
+- recovered revenue attribution
+- proactive opportunity ranking
+- commercial dashboard metrics
+- cleaned `app/api/` and `app/connectors/` packages
+- commercial workflow tests
+
+## Next before first paid pilot
+
+- Google free/busy slot selection
+- Gmail reply threading
+- production-safe queue worker
+- customer consent / opt-out state
+- better connector health and reconnect UX
+- real deployment environment
+- pilot onboarding checklist
+- result/ROI reporting suitable for sales calls
+
+## After revenue proof
+
+### Customer dependence
+- SMS
 - voice receptionist
-- call transcript and summary
-- consent / opt-out controls
-- conversation handoff to humans
+- advanced technician scheduling
+- customer memory
+- deeper knowledge retrieval
+- opportunity alerts
 
-## v0.5 — platform
+### Intelligence
+- stronger Manager planning
+- model routing by cost/quality/privacy
+- proactive diagnostics
+- verified external-agent/service delegation
 
+### Scale
+- plumbing / roofing / electrical templates
 - multi-user RBAC
-- agency / white-label accounts
-- reusable industry templates
-- workflow versioning
-- model routing
-- semantic knowledge retrieval
-- event-driven job execution
-- websocket activity stream
-- analytics
-
-## v1.0 — commercial SaaS
-
-- subscription billing
-- usage metering
-- agency reseller program
-- onboarding wizard
-- marketplace-ready agent packages
-- production security hardening
+- agency and white-label accounts
+- subscriptions and usage billing
 - deployment automation
-- SLA / monitoring
+- enterprise security/observability
