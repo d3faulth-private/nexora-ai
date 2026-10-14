@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     automation_poll_seconds: int = 30
 
     session_max_age_seconds: int = 28800
+    allowed_hosts: str = "127.0.0.1,localhost,testserver"
     login_rate_limit_attempts: int = 5
     login_rate_limit_window_seconds: int = 900
 
@@ -46,6 +47,10 @@ class Settings(BaseSettings):
     @property
     def live_mode(self) -> bool:
         return not self.demo_mode
+
+    @property
+    def allowed_host_list(self) -> list[str]:
+        return [item.strip() for item in self.allowed_hosts.split(",") if item.strip()]
 
     def validate_runtime(self) -> None:
         if self.app_env == "production":
