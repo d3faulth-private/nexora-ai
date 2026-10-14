@@ -2,7 +2,7 @@ name: Nexora CI
 
 on:
   push:
-    branches: [main, v0.3]
+    branches: [main, v0.3, v0.4-commercial]
   pull_request:
 
 jobs:
@@ -24,7 +24,10 @@ jobs:
         run: pytest
 
       - name: Compile check
-        run: python -m compileall -q app
+        run: python -m compileall -q app d3terminal
 
       - name: JavaScript syntax check
         run: node --check app/static/app.js
+
+      - name: D3 terminal import check
+        run: python -c "from d3terminal.shell import OperatorShell; assert OperatorShell()._normalize(\'what needs my attention\') == \'opportunities\'"
