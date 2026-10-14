@@ -561,3 +561,91 @@ def test_production_runtime_rejects_unsafe_defaults():
     )
     with pytest.raises(RuntimeError):
         unsafe.validate_runtime()
+
+
+
+def test_mark_lost_stops_pending_followup():
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import AutomationJob
+
+    with TestClient(app) as client:
+        login(client)
+        lead_id = create_lead(client, "Lost Followup")
+        sent = client.post(
+            "/api/leads/" + str(lead_id) + "/message",
+            json={"body": "My AC stopped and I need someone tomorrow.", "channel": "web"},
+        )
+        assert sent.status_code == 200
+
+        lost = client.patch("/api/leads/" + str(lead_id), json={"stage": "lost"})
+        assert lost.status_code == 200
+
+        with SessionLocal() as db:
+            pending = list(
+                db.scalars(
+                    select(AutomationJob).where(
+                        AutomationJob.lead_id == lead_id,
+                        AutomationJob.status == "pending",
+                    )
+                )
+            )
+            assert pending == []
+
+
+def test_business_hours_parser():
+    from app.connectors.providers import _business_hours_rule
+
+    days, start, end = _business_hours_rule("Mon-Sat 8am-7pm")
+    assert days == {0, 1, 2, 3, 4, 5}
+    assert start == 8 * 60
+    assert end == 19 * 60
+
+    days, start, end = _business_hours_rule("Mon-Fri 9:30am-5:30pm")
+    assert days == {0, 1, 2, 3, 4}
+    assert start == 9 * 60 + 30
+    assert end == 17 * 60 + 30
+
+
+def test_gmail_send_preserves_thread_headers(monkeypatch):
+    import base64
+    from email import message_from_bytes
+    from types import SimpleNamespace
+
+    import app.connectors.providers as providers
+
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"id": "sent-message"}
+
+    def fake_post(url, headers=None, json=None, timeout=None, **kwargs):
+        captured["json"] = json
+        return Response()
+
+    monkeypatch.setattr(providers, "connector", lambda *args, **kwargs: None)
+    monkeypatch.setattr(providers, "_google_token", lambda *args, **kwargs: "token")
+    monkeypatch.setattr(providers.httpx, "post", fake_post)
+
+    result = providers.gmail_send(
+        SimpleNamespace(),
+        1,
+        "customer@example.com",
+        "Re: Service request",
+        "Reply body",
+        thread_id="thread-123",
+        in_reply_to="<message-123@example.com>",
+    )
+    assert result.ok is True
+    assert captured["json"]["threadId"] == "thread-123"
+
+    raw = captured["json"]["raw"]
+    raw += "=" * (-len(raw) % 4)
+    message = message_from_bytes(base64.urlsafe_b64decode(raw))
+    assert message["In-Reply-To"] == "<message-123@example.com>"
+    assert message["References"] == "<message-123@example.com>"
