@@ -25,6 +25,7 @@ from ..connectors.providers import (
     hubspot_upsert_contact,
     mark_connector,
     set_secret,
+    signed_webhook,
     test_connector,
 )
 from ..models import Appointment, AutomationJob, ExternalEvent, Lead, User
@@ -439,6 +440,19 @@ def book_lead(lead_id: int, request: Request, db: Session = Depends(get_db)):
         )
     except Exception:
         pass
+    try:
+        signed_webhook(
+            db,
+            workspace.id,
+            "lead.booked",
+            {
+                "lead_id": lead.id,
+                "appointment_id": appointment.id,
+                "starts_at": appointment.starts_at.isoformat(),
+            },
+        )
+    except Exception:
+        pass
 
     db.commit()
     return {
@@ -590,6 +604,15 @@ def complete_job(
                 "zip_code": lead.zip_code,
                 "stage": lead.stage,
             },
+        )
+    except Exception:
+        pass
+    try:
+        signed_webhook(
+            db,
+            workspace.id,
+            "lead.completed",
+            {"lead_id": lead.id, "revenue": event.amount},
         )
     except Exception:
         pass
