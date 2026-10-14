@@ -3,27 +3,35 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Nexora AI</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body>
+<body data-mode="{{ 'demo' if demo_mode else 'live' }}">
   <aside class="sidebar">
     <div class="brand">
       <div class="brand-mark">N</div>
       <div>
         <strong>NEXORA AI</strong>
-        <span>AI Workforce OS · v0.4</span>
+        <span>AI Workforce OS · v0.5 Pilot</span>
       </div>
+    </div>
+
+    <div class="mode-card {{ 'demo' if demo_mode else 'live' }}">
+      <span class="mode-dot"></span>
+      <div><strong>{{ 'DEMO' if demo_mode else 'LIVE' }}</strong><small>{{ app_env|upper }}</small></div>
     </div>
 
     <nav>
       <button class="nav active" data-scroll="overview">Overview</button>
-      <button class="nav" data-scroll="onboarding">Business Profile</button>
       <button class="nav" data-scroll="opportunities">Opportunities</button>
-      <button class="nav" data-scroll="agents">AI Workforce</button>
       <button class="nav" data-scroll="leads">Leads</button>
+      <button class="nav" data-scroll="conversations">Conversations</button>
+      <button class="nav" data-scroll="appointments">Appointments</button>
+      <button class="nav" data-scroll="agents">AI Workforce</button>
       <button class="nav" data-scroll="approvals">Approvals</button>
-      <button class="nav" data-scroll="connectors">Connectors</button>
+      <button class="nav" data-scroll="connectors">Integrations</button>
+      <button class="nav" data-scroll="onboarding">Business Profile</button>
       <button class="nav" data-scroll="activity">Activity</button>
     </nav>
 
@@ -31,6 +39,7 @@
       <div class="signed-user">{{ user.name }}</div>
       <div>{{ user.email }}</div>
       <form method="post" action="/logout">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
         <button class="link-button">Sign out</button>
       </form>
     </div>
@@ -45,9 +54,18 @@
       </div>
       <div class="header-actions">
         <span class="status-pill"><span class="status-dot"></span>System online</span>
-        <a class="ghost" href="/docs" target="_blank">API Docs</a>
+        <span class="status-pill {{ 'demo-pill' if demo_mode else 'live-pill' }}">{{ 'DEMO DATA' if demo_mode else 'LIVE BUSINESS' }}</span>
+        <a class="ghost" href="/docs" target="_blank" rel="noreferrer">API Docs</a>
       </div>
     </header>
+
+    <div id="setupBanner" class="setup-banner hidden">
+      <div>
+        <strong>Finish business setup</strong>
+        <span>Nexora needs your services, coverage, hours and operating rules before going live.</span>
+      </div>
+      <button id="setupBannerBtn">Continue onboarding</button>
+    </div>
 
     <section class="manager">
       <div class="manager-title">
@@ -55,7 +73,7 @@
         <div>
           <div class="eyebrow">ORCHESTRATOR</div>
           <h2>Nexora Manager</h2>
-          <p>Give your AI workforce an objective.</p>
+          <p>Give your AI workforce a business objective.</p>
         </div>
       </div>
       <form id="managerForm">
@@ -65,17 +83,67 @@
       <div id="managerResult" class="result hidden"></div>
     </section>
 
-    <section class="metrics" id="metrics"></section>
+    <section class="metrics" id="metrics" aria-live="polite"></section>
 
     <section id="opportunities">
       <div class="section-head">
-        <div>
-          <div class="eyebrow">REVENUE RECOVERY</div>
-          <h2>Opportunities</h2>
-        </div>
-        <span class="hint">Highest-value open leads Nexora recommends working next</span>
+        <div><div class="eyebrow">WHAT NEEDS ATTENTION</div><h2>Revenue opportunities</h2></div>
+        <span class="hint">Estimated opportunity is never counted as completed revenue.</span>
       </div>
       <div class="panel" id="opportunityList"></div>
+    </section>
+
+    <section id="leads">
+      <div class="section-head">
+        <div><div class="eyebrow">REVENUE PIPELINE</div><h2>Leads</h2></div>
+        <button id="newLeadBtn" class="ghost">+ New lead</button>
+      </div>
+      <div class="panel table-wrap">
+        <table>
+          <thead><tr><th>Lead</th><th>Issue</th><th>Stage</th><th>Control</th><th>Urgency</th><th>Value</th><th></th></tr></thead>
+          <tbody id="leadRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="conversations">
+      <div class="section-head">
+        <div><div class="eyebrow">CUSTOMER COMMUNICATION</div><h2>Conversations</h2></div>
+        <span class="hint">Human takeover pauses Nexora follow-up for that conversation.</span>
+      </div>
+      <div class="panel" id="conversationList"></div>
+    </section>
+
+    <section id="appointments">
+      <div class="section-head">
+        <div><div class="eyebrow">SCHEDULING</div><h2>Appointments</h2></div>
+        <button id="checkAvailabilityBtn" class="ghost">Check Google availability</button>
+      </div>
+      <div class="panel" id="appointmentList"></div>
+    </section>
+
+    <section id="agents">
+      <div class="section-head">
+        <div><div class="eyebrow">AI WORKFORCE</div><h2>Agents</h2></div>
+        <span class="hint">Guarded autonomy is recommended for pilots.</span>
+      </div>
+      <div id="agentGrid" class="agent-grid"></div>
+    </section>
+
+    <section id="approvals">
+      <div class="section-head">
+        <div><div class="eyebrow">HUMAN CONTROL</div><h2>Approval queue</h2></div>
+        <button id="simulateApproval" class="ghost demo-only">Create demo approval</button>
+      </div>
+      <div class="panel" id="approvalList"></div>
+    </section>
+
+    <section id="connectors">
+      <div class="section-head">
+        <div><div class="eyebrow">INTEGRATIONS</div><h2>Google, HubSpot & webhook</h2></div>
+        <button id="runAutomations" class="ghost demo-only">Run due automations</button>
+      </div>
+      <div id="connectorGrid" class="connector-grid"></div>
     </section>
 
     <section id="onboarding">
@@ -86,89 +154,44 @@
       <div class="profile-card" id="profileCard"></div>
     </section>
 
-    <section id="agents">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">AI WORKFORCE</div>
-          <h2>Agents</h2>
-        </div>
-        <span class="hint">Enable agents and choose autonomy</span>
-      </div>
-      <div id="agentGrid" class="agent-grid"></div>
-    </section>
-
-    <section id="leads">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">REVENUE PIPELINE</div>
-          <h2>Leads</h2>
-        </div>
-        <button id="newLeadBtn" class="ghost">+ New lead</button>
-      </div>
-      <div class="panel table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Lead</th>
-              <th>Issue</th>
-              <th>Stage</th>
-              <th>Control</th>
-              <th>Urgency</th>
-              <th>Value</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="leadRows"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="approvals">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">HUMAN CONTROL</div>
-          <h2>Approval queue</h2>
-        </div>
-        <button id="simulateApproval" class="ghost">Create demo approval</button>
-      </div>
-      <div class="panel" id="approvalList"></div>
-    </section>
-
-    <section id="connectors">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow">INTEGRATIONS</div>
-          <h2>Connectors</h2>
-        </div>
-        <button id="runAutomations" class="ghost">Run due automations</button>
-      </div>
-      <div id="connectorGrid" class="connector-grid"></div>
-    </section>
-
     <section id="activity">
       <div class="section-head">
-        <div>
-          <div class="eyebrow">AUDIT TRAIL</div>
-          <h2>Recent activity</h2>
-        </div>
+        <div><div class="eyebrow">AUDIT TRAIL</div><h2>Recent activity</h2></div>
       </div>
       <div class="panel" id="activityList"></div>
     </section>
   </main>
 
   <dialog id="leadDialog">
-    <div class="dialog-card">
+    <div class="dialog-card lead-dialog-card">
       <button class="close" type="button" data-close="leadDialog">×</button>
-      <div class="eyebrow">LEAD CONVERSATION</div>
+      <div class="eyebrow">LEAD WORKSPACE</div>
       <h2 id="dialogTitle"></h2>
       <div id="leadSummary" class="lead-summary"></div>
-      <div class="lead-actions"><button type="button" id="takeoverBtn" class="ghost"></button><button type="button" id="bookBtn" class="ghost hidden">Confirm appointment</button><button type="button" id="completeJobBtn" class="ghost hidden">Complete job</button></div>
-      <div id="conversation" class="conversation"></div>
-      <div class="message-compose">
-        <textarea id="messageBody" placeholder="Enter a customer message..."></textarea>
-        <button type="button" id="sendMessage">Send</button>
+      <div id="leadStageLine" class="stage-line"></div>
+      <div class="lead-actions">
+        <button type="button" id="takeoverBtn" class="ghost"></button>
+        <button type="button" id="bookBtn" class="ghost hidden">Confirm appointment</button>
+        <button type="button" id="completeJobBtn" class="ghost hidden">Complete job</button>
+        <button type="button" id="markLostBtn" class="ghost danger-lite">Mark lost</button>
       </div>
-      <div id="conversationModeNote" class="hint"></div>
+      <div class="lead-layout">
+        <div>
+          <h3>Conversation</h3>
+          <div id="conversation" class="conversation"></div>
+          <div class="message-compose">
+            <textarea id="messageBody" placeholder="Enter a customer message..."></textarea>
+            <button type="button" id="sendMessage">Send</button>
+          </div>
+          <div id="conversationModeNote" class="hint"></div>
+        </div>
+        <aside class="history-panel">
+          <h3>Customer history</h3>
+          <div id="customerHistory" class="history-list"></div>
+          <h3>Appointments</h3>
+          <div id="leadAppointments" class="history-list"></div>
+        </aside>
+      </div>
     </div>
   </dialog>
 
@@ -179,13 +202,13 @@
       <h2>New inquiry</h2>
       <div class="form-grid">
         <input name="name" placeholder="Name" required>
-        <input name="email" placeholder="Email">
+        <input name="email" type="email" placeholder="Email">
         <input name="phone" placeholder="Phone">
         <input name="zip_code" placeholder="ZIP code">
         <input name="estimated_value" placeholder="Estimated value" type="number" min="0" value="0">
         <textarea name="issue" placeholder="Issue / request"></textarea>
       </div>
-      <button>Create lead</button>
+      <div class="dialog-actions"><button type="button" class="ghost" data-close="newLeadDialog">Cancel</button><button>Create lead</button></div>
     </form>
   </dialog>
 
@@ -193,47 +216,98 @@
     <form id="onboardingForm" class="dialog-card wide-form">
       <button type="button" class="close" data-close="onboardingDialog">×</button>
       <div class="eyebrow">HVAC ONBOARDING</div>
-      <h2>Configure this business</h2>
-      <div class="form-grid">
-        <input name="business_name" placeholder="Business name" required>
-        <input name="industry" value="HVAC" placeholder="Industry">
-        <input name="timezone" value="America/New_York" placeholder="Timezone">
-        <input name="phone" placeholder="Business phone">
-        <input name="email" placeholder="Business email">
-        <input name="website" placeholder="Website">
-        <textarea name="services" placeholder="Services, one per line"></textarea>
-        <textarea name="service_area" placeholder="Service area / ZIP codes"></textarea>
-        <textarea name="business_hours" placeholder="Business hours"></textarea>
-        <textarea name="emergency_policy" placeholder="Emergency handling policy"></textarea>
-        <input name="booking_duration_minutes" type="number" min="15" value="60" placeholder="Appointment duration">
-        <input name="followup_after_minutes" type="number" min="15" value="120" placeholder="Follow-up delay">
-        <input name="followup_max_attempts" type="number" min="0" max="10" value="3" placeholder="Max follow-ups">
+      <h2>Make Nexora business-specific</h2>
+      <div class="wizard-progress"><span class="active">1 Business</span><span>2 Services</span><span>3 Rules</span><span>4 Automation</span><span>5 Review</span></div>
+
+      <div class="wizard-step active" data-step="0">
+        <div class="form-grid">
+          <input name="business_name" placeholder="Business name" required>
+          <input name="industry" value="HVAC" readonly>
+          <input name="timezone" value="America/New_York" placeholder="Timezone">
+          <input name="phone" placeholder="Business phone">
+          <input name="email" type="email" placeholder="Business email">
+          <input name="website" placeholder="Website">
+        </div>
       </div>
-      <button>Save HVAC profile</button>
+      <div class="wizard-step" data-step="1">
+        <div class="form-grid single">
+          <textarea name="services" placeholder="Services, one per line"></textarea>
+          <textarea name="service_area" placeholder="Service area / ZIP codes"></textarea>
+        </div>
+      </div>
+      <div class="wizard-step" data-step="2">
+        <div class="form-grid single">
+          <textarea name="business_hours" placeholder="Business hours"></textarea>
+          <textarea name="emergency_policy" placeholder="Emergency handling policy"></textarea>
+        </div>
+      </div>
+      <div class="wizard-step" data-step="3">
+        <div class="form-grid">
+          <label>Appointment duration<input name="booking_duration_minutes" type="number" min="15" value="60"></label>
+          <label>First follow-up delay<input name="followup_after_minutes" type="number" min="15" value="120"></label>
+          <label>Maximum follow-ups<input name="followup_max_attempts" type="number" min="0" max="10" value="3"></label>
+        </div>
+      </div>
+      <div class="wizard-step" data-step="4">
+        <div id="onboardingReview" class="review-card"></div>
+        <p class="muted">After saving, connect Google to verify real appointment availability and Gmail communication.</p>
+      </div>
+
+      <div class="wizard-actions">
+        <button type="button" id="wizardBack" class="ghost">Back</button>
+        <button type="button" id="wizardNext">Next</button>
+        <button type="submit" id="wizardSave" class="hidden">Save & finish</button>
+      </div>
     </form>
   </dialog>
 
   <dialog id="hubspotDialog">
     <form id="hubspotForm" class="dialog-card">
       <button type="button" class="close" data-close="hubspotDialog">×</button>
-      <div class="eyebrow">HUBSPOT</div>
-      <h2>Connect CRM</h2>
-      <p class="muted">The credential is encrypted before storage.</p>
-      <input name="token" type="password" placeholder="HubSpot credential" required>
-      <button>Connect HubSpot</button>
+      <div class="eyebrow">HUBSPOT</div><h2>Connect CRM</h2>
+      <p class="muted">Private app credentials are encrypted before storage.</p>
+      <input name="token" type="password" autocomplete="off" placeholder="HubSpot private app token" required>
+      <div class="dialog-actions"><button type="button" class="ghost" data-close="hubspotDialog">Cancel</button><button>Connect HubSpot</button></div>
     </form>
   </dialog>
 
   <dialog id="webhookDialog">
     <form id="webhookForm" class="dialog-card">
       <button type="button" class="close" data-close="webhookDialog">×</button>
-      <div class="eyebrow">WEBHOOK</div>
-      <h2>Connect endpoint</h2>
-      <input name="url" placeholder="https://example.com/webhook" required>
-      <input name="secret" type="password" placeholder="Signing secret">
-      <button>Connect webhook</button>
+      <div class="eyebrow">WEBHOOK</div><h2>Connect endpoint</h2>
+      <input name="url" type="url" placeholder="https://example.com/webhook" required>
+      <input name="secret" type="password" autocomplete="off" placeholder="Signing secret">
+      <div class="dialog-actions"><button type="button" class="ghost" data-close="webhookDialog">Cancel</button><button>Connect webhook</button></div>
     </form>
   </dialog>
+
+  <dialog id="revenueDialog">
+    <form id="revenueForm" class="dialog-card">
+      <button type="button" class="close" data-close="revenueDialog">×</button>
+      <div class="eyebrow">CONFIRMED REVENUE</div><h2>Complete job</h2>
+      <p class="muted">Enter the actual completed amount. Nexora keeps pipeline separate from confirmed revenue.</p>
+      <label>Actual revenue<input id="actualRevenue" name="actual_amount" type="number" min="0" step="0.01" required></label>
+      <div class="dialog-actions"><button type="button" class="ghost" data-close="revenueDialog">Cancel</button><button>Record completed job</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog">
+    <form method="dialog" class="dialog-card">
+      <div class="eyebrow">CONFIRM ACTION</div><h2 id="confirmTitle">Confirm</h2>
+      <p id="confirmMessage" class="muted"></p>
+      <div class="dialog-actions"><button value="cancel" class="ghost">Cancel</button><button value="confirm" id="confirmAction">Confirm</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="availabilityDialog">
+    <div class="dialog-card">
+      <button type="button" class="close" data-close="availabilityDialog">×</button>
+      <div class="eyebrow">GOOGLE CALENDAR</div><h2>Next available windows</h2>
+      <div id="availabilityList" class="history-list"></div>
+    </div>
+  </dialog>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite"></div>
 
   <script src="/static/app.js"></script>
 </body>
