@@ -9,7 +9,7 @@ from sqlalchemy import select
 from .agents import followup_message
 from .config import get_settings
 from .db import SessionLocal
-from .connectors.providers import gmail_reply_context_for_email, gmail_send, hubspot_upsert_contact, signed_webhook
+from .connectors.providers import connector, gmail_reply_context_for_email, gmail_send, hubspot_upsert_contact, signed_webhook
 from .models import (
     Appointment,
     AutomationJob,
@@ -116,6 +116,24 @@ def _run_followup(db, job: AutomationJob) -> str:
             + (lead.issue.strip() or "your service request")
             + ". If you still need help, reply and we can help with the next available appointment."
         )
+    if not lead.email:
+        return "follow-up skipped: lead has no email delivery address"
+
+    google = connector(db, job.workspace_id, "google")
+    if not google or google.status != "connected":
+        return "follow-up skipped: Google email delivery is not connected"
+
+    reply_context = gmail_reply_context_for_email(db, job.workspace_id, lead.email)
+    gmail_send(
+        db,
+        job.workspace_id,
+        lead.email,
+        "Following up on your service request",
+        body,
+        thread_id=reply_context.get("thread_id"),
+        in_reply_to=reply_context.get("in_reply_to"),
+    )
+
     db.add(
         Message(
             conversation_id=conversation.id,
@@ -127,21 +145,6 @@ def _run_followup(db, job: AutomationJob) -> str:
     lead.last_contacted_at = utcnow()
     if lead.stage == "new":
         lead.stage = "contacted"
-
-    if lead.email:
-        try:
-            reply_context = gmail_reply_context_for_email(db, job.workspace_id, lead.email)
-            gmail_send(
-                db,
-                job.workspace_id,
-                lead.email,
-                "Following up on your service request",
-                body,
-                thread_id=reply_context.get("thread_id"),
-                in_reply_to=reply_context.get("in_reply_to"),
-            )
-        except Exception:
-            pass
 
     try:
         hubspot_upsert_contact(
