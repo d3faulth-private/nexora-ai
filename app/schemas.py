@@ -54,10 +54,10 @@ class OnboardingUpdate(BaseModel):
     phone: str | None = None
     email: str | None = None
     website: str | None = None
-    services: list[str] = []
-    service_area: str = ""
-    business_hours: str = ""
-    emergency_policy: str = ""
+    services: list[str] = Field(default_factory=list, min_length=1)
+    service_area: str = Field(min_length=1)
+    business_hours: str = Field(min_length=1)
+    emergency_policy: str = Field(min_length=1)
     booking_duration_minutes: int = Field(default=60, ge=15, le=480)
     followup_after_minutes: int = Field(default=120, ge=15, le=10080)
     followup_max_attempts: int = Field(default=3, ge=0, le=10)
