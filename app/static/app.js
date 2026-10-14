@@ -1,5 +1,6 @@
 let state = null;
-let activeLead = null;\nlet activeLeadData = null;
+let activeLead = null;
+let activeLeadData = null;
 
 const el = (selector) => document.querySelector(selector);
 const money = (value) => new Intl.NumberFormat("en-US", {
