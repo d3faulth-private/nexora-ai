@@ -106,6 +106,7 @@ def upsert_profile(db: Session, workspace: Workspace, payload: dict) -> Workspac
     workspace.phone = payload.get("phone")
     workspace.email = payload.get("email")
     workspace.website = payload.get("website")
+    workspace.knowledge_summary = payload.get("knowledge_summary") or ""
 
     profile = get_profile(db, workspace.id)
     if not profile:
