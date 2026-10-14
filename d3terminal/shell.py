@@ -88,6 +88,7 @@ class OperatorShell:
         print_formatted_text(message_tokens(level, message), style=D3_STYLE)
 
     def initialize(self) -> None:
+        self.settings.validate_runtime()
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             seed_demo(db)
