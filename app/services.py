@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from .agents import AgentDecision, customer_decision, followup_message, manager_intent, route_message
 from .automation import schedule_followup_for_lead
+from .config import get_settings
 from .hvac import hvac_knowledge_text
 from .connectors.providers import gmail_send, gmail_thread_for_email, google_available_slots, hubspot_upsert_contact, signed_webhook
 from .models import (
@@ -857,6 +858,10 @@ def dashboard(db: Session, workspace: Workspace) -> dict:
             "timezone": workspace.timezone,
         },
         "profile": profile_dict(profile),
+        "deployment": {
+            "mode": "demo" if get_settings().demo_mode else "live",
+            "environment": get_settings().app_env,
+        },
         "metrics": {
             "leads": len(leads),
             "qualified": sum(1 for lead in leads if lead.stage == "qualified"),
@@ -894,6 +899,30 @@ def dashboard(db: Session, workspace: Workspace) -> dict:
             }
             for item in approvals
         ],
+        "appointments": [
+            {
+                "id": item.id,
+                "lead_id": item.lead_id,
+                "lead_name": next((lead.name for lead in leads if lead.id == item.lead_id), "Unknown"),
+                "starts_at": item.starts_at,
+                "status": item.status,
+                "notes": item.notes,
+            }
+            for item in appointments[:20]
+        ],
+        "conversations": [
+            {
+                "lead_id": row["id"],
+                "name": row["name"],
+                "stage": row["stage"],
+                "human_control": row["human_control"],
+                "last_contacted_at": next(
+                    (lead.last_contacted_at for lead in leads if lead.id == row["id"]),
+                    None,
+                ),
+            }
+            for row in lead_rows[:20]
+        ],
         "connectors": [
             {
                 "id": item.id,
@@ -901,6 +930,7 @@ def dashboard(db: Session, workspace: Workspace) -> dict:
                 "name": item.name,
                 "status": item.status,
                 "mode": item.mode,
+                "last_sync_at": item.last_sync_at,
             }
             for item in connectors
         ],
