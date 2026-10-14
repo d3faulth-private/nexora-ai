@@ -140,7 +140,7 @@ class Task(Base):
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    lead: Mapped["Lead" | None] = relationship(back_populates="tasks")
+    lead: Mapped["Lead | None"] = relationship(back_populates="tasks")
 
 
 class Approval(Base):
