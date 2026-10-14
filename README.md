@@ -2,85 +2,41 @@
 
 > **Your AI Workforce. Always On.**
 
-Nexora AI is an AI workforce platform for service businesses. The first commercial focus is HVAC: respond to leads quickly, qualify them, follow up automatically, book appointments, update connected systems, surface revenue opportunities, and show the owner what Nexora helped generate.
+Nexora AI v0.5 Pilot is a revenue-first AI workforce for independent HVAC businesses. It captures and qualifies leads, follows up, checks Google Calendar availability, books appointments, keeps Gmail conversations threaded, updates HubSpot, supports human takeover, and separates pipeline from confirmed revenue.
 
-## Commercial build
+## Pilot workflow
 
-The `v0.4-commercial` branch adds the first revenue-focused layer on top of the validated v0.3 foundation:
+```text
+lead arrives
+  -> Nexora responds / qualifies
+  -> Calendar availability is checked when Google is connected
+  -> appointment is proposed
+  -> follow-up sequence runs only while the lead remains open
+  -> owner can take over at any time
+  -> booking stops follow-up
+  -> completed job records actual revenue
+  -> dashboard shows pipeline, completed and recovered revenue separately
+```
 
-- Nexora Manager plus Receptionist, Sales, Follow-Up, Support, and Operations agents
-- HVAC business onboarding
-- lead CRM and conversation history
-- appointment proposals and booking
-- human takeover / return-to-AI
-- approval policy for sensitive actions
-- durable follow-up jobs
-- Google Gmail + Calendar connector
-- HubSpot connector
-- signed outbound webhooks
-- encrypted connector credentials
-- external lead intake API
-- revenue attribution: booked, completed, and recovered value
-- proactive opportunity engine
-- D3FAULTH operator terminal
-- automated tests and CI
+## Demo and live modes
 
-## Start with the D3FAULTH terminal
+DEMO seeds sample HVAC data and allows mock connectors. LIVE creates a clean HVAC workspace with no sample leads and no mock connectors.
 
-Requires Python 3.11+.
+For LIVE set `DEMO_MODE=false`, strong bootstrap owner credentials, a strong `APP_SECRET`, and `CONNECTOR_ENCRYPTION_KEY`. Production startup rejects unsafe defaults.
 
-```powershell
+## Install
+
+```bash
 git clone https://github.com/d3faulth-private/nexora-ai.git
 cd nexora-ai
-git checkout v0.4-commercial
-
+git checkout v0.5-pilot
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-copy .env.example .env
-
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+cp .env.example .env
+python scripts/migrate.py
 nexora
 ```
-
-The console opens as:
-
-```text
-D3FAULTH // NEXORA AI
-Security Engineering // AI Systems // Operator Console
-
-d3faulth@nexora [DEVE]:~$
-```
-
-Useful commands:
-
-```text
-status
-doctor
-revenue
-opportunities
-leads
-agents
-jobs
-connectors
-why last
-serve
-stop
-restart
-open
-history
-exit
-```
-
-`exit`, `quit`, `q`, or Ctrl+D use the graceful shutdown path. Ctrl+C cancels the current terminal input/operation where practical instead of treating every interrupt as a hard shutdown.
-
-You can also run the web application directly:
-
-```powershell
-uvicorn app.main:app --reload
-```
-
-Dashboard: `http://127.0.0.1:8000`  
-API docs: `http://127.0.0.1:8000/docs`
 
 Default demo login:
 
@@ -89,101 +45,41 @@ admin@nexora.local
 nexora-demo
 ```
 
-## Revenue workflow
-
-The Stage-1 commercial loop is intentionally simple:
+## D3FAULTH operator console
 
 ```text
-lead arrives
-    ↓
-instant qualification
-    ↓
-appointment proposal
-    ↓
-follow-up if not booked
-    ↓
-confirmed appointment
-    ↓
-completed job revenue
-    ↓
-Nexora attribution + ROI dashboard
+d3faulth@nexora [DEVE]:~$
 ```
 
-The opportunity engine ranks open leads by value and state so the owner can immediately see where potential revenue is sitting.
+Useful commands: `status`, `doctor`, `revenue`, `opportunities`, `leads`, `agents`, `jobs`, `connectors`, `why last`, `logs --tail 50`, `debug last`, `serve`, `stop`, `restart`, `open`, `history`, and `exit`.
 
-## Real connectors
+`serve` waits for `/health` before reporting success and captures managed Uvicorn logs for troubleshooting.
 
-Generate an encryption key before storing real provider credentials:
+## Integrations
 
-```powershell
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
+Google OAuth provides Gmail + Calendar. Nexora can ingest unread email, reply in the same Gmail thread, check Calendar free/busy in the business timezone, propose service windows, and create confirmed Calendar events.
 
-Set `CONNECTOR_ENCRYPTION_KEY` in `.env`.
+HubSpot private app credentials and webhook credentials are encrypted before storage. Lead progress maps to HubSpot lifecycle stages where applicable. Outbound webhooks are HMAC-signed.
 
-Google OAuth:
+## Pilot safeguards
 
-```env
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=http://127.0.0.1:8000/api/connectors/google/callback
-```
-
-HubSpot and webhook credentials can be configured through the dashboard and are encrypted before storage.
-
-## Repository layout
-
-```text
-app/
-  api/              HTTP API routes
-  connectors/       external provider adapters
-  static/           dashboard JavaScript/CSS
-  templates/        web UI
-  agents.py         workforce routing/behavior
-  ai.py             model-provider abstraction
-  automation.py     scheduled follow-up execution
-  models.py         SQLAlchemy data model
-  revenue.py        attribution + opportunity engine
-  services.py       orchestration layer
-  policy.py         approval policy
-  security.py       authentication primitives
-  vault.py          connector secret encryption
-
-d3terminal/
-  branding.py       D3FAULTH terminal identity
-  diagnostics.py    system/business diagnostics
-  runtime.py        managed local server lifecycle
-  shell.py          operator commands and graceful exit
-
-tests/
-docs/
-scripts/
-```
+v0.5 includes CSRF protection, login throttling, expiring sessions, secure production cookies, security headers/CSP, safe customer-facing error pages, encrypted connector credentials, OAuth-state verification, workspace-isolation tests, automation stop conditions, secret-safe operator logs, and an Alembic migration baseline.
 
 ## Tests
 
-```powershell
-pytest
-python -m compileall -q app d3terminal
+```bash
+python -m pytest
+python scripts/migrate.py
+python -m compileall -q app d3terminal migrations scripts
 node --check app/static/app.js
 ```
 
-## Product rule
+## Commercial rule
 
-Nexora is not optimized for feature count. Product work is prioritized by whether it helps:
+Nexora never presents estimated pipeline as completed revenue. The dashboard separates open pipeline, booked pipeline, completed revenue, recovered revenue and open opportunity.
 
-1. acquire a paying customer,
-2. generate or recover customer revenue,
-3. retain the customer,
-4. reduce meaningful operating work, or
-5. justify higher pricing.
+## Scope
 
-See `docs/COMMERCIAL_WORKFLOW.md` and `docs/OPERATOR_TERMINAL.md`.
+v0.5 is HVAC-first. SMS, voice, WhatsApp, additional industries, marketplace/white-label features, subscription billing and Nexora Radar are outside this pilot branch.
 
-## Production boundary
-
-This branch is a commercial-validation build, not a finished enterprise SaaS. Before public customer deployment, complete the controls in `docs/SECURITY.md`, including CSRF protection, stronger tenant isolation, production secret management, durable external workers, rate limiting, MFA, connector revocation, backups, monitoring, and consent controls.
-
-## License
-
-No open-source license has been granted. All rights are reserved unless the repository owner explicitly adds a license.
+No open-source license has been granted. All rights are reserved.
