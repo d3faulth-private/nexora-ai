@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import select
@@ -568,6 +569,7 @@ def google_available_slots(
     desired_start: datetime,
     duration_minutes: int,
     count: int = 3,
+    timezone_name: str = "UTC",
 ) -> list[datetime]:
     if desired_start.tzinfo is None:
         desired_start = desired_start.replace(tzinfo=timezone.utc)
@@ -578,11 +580,12 @@ def google_available_slots(
     if item.mode == "mock":
         return [desired_start + timedelta(minutes=30 * index) for index in range(count)]
 
-    window_end = desired_start + timedelta(days=3)
-    busy = google_calendar_freebusy(db, workspace_id, desired_start, window_end)
+    business_tz = ZoneInfo(timezone_name)
+    cursor = desired_start.astimezone(business_tz)
+    window_end = cursor + timedelta(days=3)
+    busy = google_calendar_freebusy(db, workspace_id, cursor, window_end)
     duration = timedelta(minutes=duration_minutes)
     slots: list[datetime] = []
-    cursor = desired_start
 
     minute = 30 if cursor.minute < 30 else 0
     hour_add = 0 if cursor.minute < 30 else 1
