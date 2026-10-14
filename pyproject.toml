@@ -33,3 +33,6 @@ addopts = "-q"
 [project.scripts]
 nexora = "d3terminal.__main__:main"
 d3terminal = "d3terminal.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["app*", "d3terminal*"]
