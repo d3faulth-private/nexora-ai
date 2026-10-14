@@ -1,5 +1,5 @@
 let state = null;
-let activeLead = null;
+let activeLead = null;\nlet activeLeadData = null;
 
 const el = (selector) => document.querySelector(selector);
 const money = (value) => new Intl.NumberFormat("en-US", {
@@ -40,8 +40,18 @@ function renderMetrics() {
     metric("Qualified", m.qualified) +
     metric("Appointments", m.appointments) +
     metric("Pipeline", money(m.pipeline)) +
-    metric("Approvals", m.pending_approvals) +
-    metric("Open tasks", m.open_tasks);
+    metric("Automations", m.pending_automations || 0) +
+    metric("Approvals", m.pending_approvals);
+}
+
+function renderProfile() {
+  const p = state.profile || {};
+  const services = (p.services || []).slice(0, 6).join(", ");
+  el("#profileCard").innerHTML =
+    '<div><span class="profile-label">Status</span><strong>' + (p.onboarding_completed ? "Configured" : "Needs setup") + '</strong></div>' +
+    '<div><span class="profile-label">Services</span><strong>' + (services || "Not configured") + '</strong></div>' +
+    '<div><span class="profile-label">Service area</span><strong>' + (p.service_area || "Not configured") + '</strong></div>' +
+    '<div><span class="profile-label">Follow-up</span><strong>' + (p.followup_after_minutes || 120) + ' min · ' + (p.followup_max_attempts || 3) + ' attempts</strong></div>';
 }
 
 function renderAgents() {
@@ -73,6 +83,7 @@ function renderLeads() {
       '<td><strong>' + lead.name + '</strong><br><small>' + lead.source + '</small></td>' +
       '<td>' + (lead.issue || "—") + '</td>' +
       '<td><span class="stage">' + lead.stage + '</span></td>' +
+      '<td><span class="control ' + (lead.human_control ? "human" : "ai") + '">' + (lead.human_control ? "HUMAN" : "AI") + '</span></td>' +
       '<td class="' + (lead.urgency === "urgent" ? "urgent" : "") + '">' + lead.urgency + '</td>' +
       '<td>' + money(lead.estimated_value) + '</td>' +
       '<td><button class="view" onclick="openLead(' + lead.id + ')">Open</button></td>' +
@@ -92,14 +103,30 @@ function renderApprovals() {
   }).join("") : '<div class="activity-item"><div class="activity-agent">CLEAR</div><div>No pending approvals.</div></div>';
 }
 
+function connectorAction(item) {
+  if (item.slug === "google") {
+    return '<button class="view" onclick="connectGoogle()">Connect Google</button><button class="view" onclick="syncGmail()">Sync Gmail</button>';
+  }
+  if (item.slug === "hubspot") {
+    return '<button class="view" onclick="openConnectorDialog(\'hubspotDialog\')">Connect HubSpot</button>';
+  }
+  if (item.slug === "webhook") {
+    return '<button class="view" onclick="openConnectorDialog(\'webhookDialog\')">Connect webhook</button>';
+  }
+  return "";
+}
+
 function renderConnectors() {
-  el("#connectorGrid").innerHTML = state.connectors.map(function(item) {
-    return '<div class="connector-card">' +
-      '<strong>' + item.name + '</strong>' +
-      '<span>' + item.mode + ' mode</span>' +
-      '<span class="connector-status">● ' + item.status + '</span>' +
-      '</div>';
-  }).join("");
+  el("#connectorGrid").innerHTML = state.connectors
+    .filter(function(item) { return ["google", "hubspot", "webhook"].includes(item.slug); })
+    .map(function(item) {
+      return '<div class="connector-card">' +
+        '<strong>' + item.name + '</strong>' +
+        '<span>' + item.mode + ' mode</span>' +
+        '<span class="connector-status">● ' + item.status + '</span>' +
+        '<div class="connector-actions">' + connectorAction(item) + '</div>' +
+        '</div>';
+    }).join("");
 }
 
 function renderActivity() {
@@ -116,6 +143,7 @@ function render() {
   el("#workspaceName").textContent = state.workspace.name;
   el("#workspaceMeta").textContent = state.workspace.industry + " · " + state.workspace.timezone;
   renderMetrics();
+  renderProfile();
   renderAgents();
   renderLeads();
   renderApprovals();
@@ -148,7 +176,10 @@ window.resolveApproval = async function(id, decision) {
 
 window.openLead = async function(id) {
   activeLead = id;
-  const lead = await api("/api/leads/" + id);
+  activeLeadData = await api("/api/leads/" + id);
+  const lead = activeLeadData;
+  const row = state.leads.find(function(item) { return item.id === id; });
+  const human = !!(row && row.human_control);
 
   el("#dialogTitle").textContent = lead.name + " · " + lead.stage;
   el("#leadSummary").innerHTML =
@@ -163,6 +194,13 @@ window.openLead = async function(id) {
       '</div>';
   }).join("") : '<div class="hint">No messages yet. Send a customer message to test the workforce.</div>';
 
+  el("#takeoverBtn").textContent = human ? "Return to Nexora" : "Take over";
+  el("#conversationModeNote").textContent = human ?
+    "Human control is active. AI automation is paused for this conversation." :
+    "Nexora has control of this conversation.";
+
+  const proposed = lead.appointments.find(function(item) { return item.status === "proposed"; });
+  el("#bookBtn").classList.toggle("hidden", !proposed);
   el("#leadDialog").showModal();
 };
 
@@ -173,9 +211,13 @@ el("#sendMessage").addEventListener("click", async function() {
   const button = el("#sendMessage");
   button.disabled = true;
   try {
-    await api("/api/leads/" + activeLead + "/message", {
+    const row = state.leads.find(function(item) { return item.id === activeLead; });
+    const human = !!(row && row.human_control);
+    const endpoint = human ? "/api/leads/" + activeLead + "/human-message" : "/api/leads/" + activeLead + "/message";
+    const payload = human ? {body: body} : {body: body, channel: "web"};
+    await api(endpoint, {
       method: "POST",
-      body: JSON.stringify({body: body, channel: "web"})
+      body: JSON.stringify(payload)
     });
     el("#messageBody").value = "";
     await refresh();
@@ -224,7 +266,107 @@ el("#newLeadForm").addEventListener("submit", async function(event) {
   await refresh();
 });
 
-el("#simulateApproval").addEventListener("click", async function() {
+
+window.openConnectorDialog = function(id) {
+  document.getElementById(id).showModal();
+};
+
+window.connectGoogle = async function() {
+  try {
+    const data = await api("/api/connectors/google/start");
+    window.location.href = data.authorization_url;
+  } catch (error) {
+    alert("Google OAuth is not configured in .env yet.");
+  }
+};
+
+window.syncGmail = async function() {
+  try {
+    const data = await api("/api/connectors/gmail/sync", {method: "POST"});
+    alert("Fetched " + data.fetched + " unread Gmail message(s).");
+    await refresh();
+  } catch (error) {
+    alert("Connect Google in real mode before syncing Gmail.");
+  }
+};
+
+el("#takeoverBtn").addEventListener("click", async function() {
+  if (!activeLead) return;
+  const row = state.leads.find(function(item) { return item.id === activeLead; });
+  const human = !!(row && row.human_control);
+  await api("/api/leads/" + activeLead + (human ? "/return-to-ai" : "/takeover"), {method: "POST"});
+  await refresh();
+  await window.openLead(activeLead);
+});
+
+el("#bookBtn").addEventListener("click", async function() {
+  if (!activeLead) return;
+  const result = await api("/api/leads/" + activeLead + "/book", {method: "POST"});
+  alert(result.calendar_synced ? "Appointment confirmed and synced to Google Calendar." : "Appointment confirmed. Calendar sync was unavailable.");
+  await refresh();
+  await window.openLead(activeLead);
+});
+
+el("#configureBusiness").addEventListener("click", async function() {
+  const data = await api("/api/onboarding");
+  const form = el("#onboardingForm");
+  const w = data.workspace || {};
+  const p = data.profile || {};
+  form.elements.business_name.value = w.name || "";
+  form.elements.industry.value = w.industry || "HVAC";
+  form.elements.timezone.value = w.timezone || "America/New_York";
+  form.elements.phone.value = w.phone || "";
+  form.elements.email.value = w.email || "";
+  form.elements.website.value = w.website || "";
+  form.elements.services.value = (p.services || []).join("\n");
+  form.elements.service_area.value = p.service_area || "";
+  form.elements.business_hours.value = p.business_hours || "";
+  form.elements.emergency_policy.value = p.emergency_policy || "";
+  form.elements.booking_duration_minutes.value = p.booking_duration_minutes || 60;
+  form.elements.followup_after_minutes.value = p.followup_after_minutes || 120;
+  form.elements.followup_max_attempts.value = p.followup_max_attempts || 3;
+  el("#onboardingDialog").showModal();
+});
+
+el("#onboardingForm").addEventListener("submit", async function(event) {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+  data.services = String(data.services || "").split("\n").map(function(v) { return v.trim(); }).filter(Boolean);
+  data.booking_duration_minutes = Number(data.booking_duration_minutes || 60);
+  data.followup_after_minutes = Number(data.followup_after_minutes || 120);
+  data.followup_max_attempts = Number(data.followup_max_attempts || 3);
+  await api("/api/onboarding", {method: "POST", body: JSON.stringify(data)});
+  el("#onboardingDialog").close();
+  await refresh();
+});
+
+el("#hubspotForm").addEventListener("submit", async function(event) {
+  event.preventDefault();
+  const token = new FormData(event.currentTarget).get("token");
+  await api("/api/connectors/hubspot/connect", {method: "POST", body: JSON.stringify({private_app_token: token})});
+  event.currentTarget.reset();
+  el("#hubspotDialog").close();
+  await refresh();
+});
+
+el("#webhookForm").addEventListener("submit", async function(event) {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  await api("/api/connectors/webhook/connect", {
+    method: "POST",
+    body: JSON.stringify({url: form.get("url"), secret: form.get("secret") || ""})
+  });
+  event.currentTarget.reset();
+  el("#webhookDialog").close();
+  await refresh();
+});
+
+el("#runAutomations").addEventListener("click", async function() {
+  const result = await api("/api/automation/run-due", {method: "POST"});
+  alert("Processed " + result.processed + " due automation job(s).");
+  await refresh();
+});
+\nel("#simulateApproval").addEventListener("click", async function() {
   await api("/api/actions/request", {
     method: "POST",
     body: JSON.stringify({
