@@ -367,7 +367,8 @@ el("#runAutomations").addEventListener("click", async function() {
   alert("Processed " + result.processed + " due automation job(s).");
   await refresh();
 });
-\nel("#simulateApproval").addEventListener("click", async function() {
+
+el("#simulateApproval").addEventListener("click", async function() {
   await api("/api/actions/request", {
     method: "POST",
     body: JSON.stringify({
