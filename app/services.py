@@ -507,11 +507,13 @@ def process_customer_message(
     if decision.reply:
         if channel == "email" and lead.email:
             reply_context = gmail_reply_context_for_email(db, workspace.id, lead.email)
+            original_subject = str(reply_context.get("subject") or "Your service request")
+            reply_subject = original_subject if original_subject.lower().startswith("re:") else "Re: " + original_subject
             gmail_send(
                 db,
                 workspace.id,
                 lead.email,
-                "Re: Your service request",
+                reply_subject,
                 decision.reply,
                 thread_id=reply_context.get("thread_id"),
                 in_reply_to=reply_context.get("in_reply_to"),
@@ -573,11 +575,13 @@ def add_human_message(
     if conversation.channel == "email" and lead.email:
         try:
             reply_context = gmail_reply_context_for_email(db, workspace.id, lead.email)
+            original_subject = str(reply_context.get("subject") or "Your service request")
+            reply_subject = original_subject if original_subject.lower().startswith("re:") else "Re: " + original_subject
             gmail_send(
                 db,
                 workspace.id,
                 lead.email,
-                "Re: Your service request",
+                reply_subject,
                 body,
                 thread_id=reply_context.get("thread_id"),
                 in_reply_to=reply_context.get("in_reply_to"),
