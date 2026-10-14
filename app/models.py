@@ -208,3 +208,79 @@ class UsageEvent(Base):
     units: Mapped[float] = mapped_column(Float, default=0)
     estimated_cost: Mapped[float] = mapped_column(Float, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+
+class WorkspaceProfile(Base):
+    __tablename__ = "workspace_profiles"
+    __table_args__ = (UniqueConstraint("workspace_id", name="uq_workspace_profile"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"))
+    services_json: Mapped[str] = mapped_column(Text, default="[]")
+    service_area: Mapped[str] = mapped_column(Text, default="")
+    business_hours: Mapped[str] = mapped_column(Text, default="")
+    emergency_policy: Mapped[str] = mapped_column(Text, default="")
+    booking_duration_minutes: Mapped[int] = mapped_column(Integer, default=60)
+    followup_after_minutes: Mapped[int] = mapped_column(Integer, default=120)
+    followup_max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ConversationControl(Base):
+    __tablename__ = "conversation_controls"
+    __table_args__ = (UniqueConstraint("conversation_id", name="uq_conversation_control"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"))
+    conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id"))
+    mode: Mapped[str] = mapped_column(String(20), default="ai")
+    taken_over_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    taken_over_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    returned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AutomationJob(Base):
+    __tablename__ = "automation_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"))
+    lead_id: Mapped[int | None] = mapped_column(ForeignKey("leads.id"), nullable=True)
+    conversation_id: Mapped[int | None] = mapped_column(ForeignKey("conversations.id"), nullable=True)
+    kind: Mapped[str] = mapped_column(String(60))
+    run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(30), default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    last_error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ConnectorSecret(Base):
+    __tablename__ = "connector_secrets"
+    __table_args__ = (UniqueConstraint("workspace_id", "connector_slug", name="uq_connector_secret"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"))
+    connector_slug: Mapped[str] = mapped_column(String(60))
+    secret_blob: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ExternalEvent(Base):
+    __tablename__ = "external_events"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "provider", "idempotency_key", name="uq_external_event"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id"))
+    provider: Mapped[str] = mapped_column(String(60))
+    idempotency_key: Mapped[str] = mapped_column(String(255))
+    event_type: Mapped[str] = mapped_column(String(80), default="")
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    status: Mapped[str] = mapped_column(String(30), default="received")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

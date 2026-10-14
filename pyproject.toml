@@ -1,6 +1,6 @@
 [project]
 name = "nexora-ai"
-version = "0.2.0"
+version = "0.3.0"
 description = "Nexora AI - AI workforce operating system for service businesses"
 requires-python = ">=3.11"
 dependencies = [
@@ -14,6 +14,8 @@ dependencies = [
   "python-multipart>=0.0.9,<1",
   "itsdangerous>=2.2,<3",
   "bcrypt>=4.2,<5",
+  "cryptography>=43,<46",
+  "apscheduler>=3.10,<4",
   "psycopg[binary]>=3.2,<4"
 ]
 

@@ -18,6 +18,18 @@ class Settings(BaseSettings):
     ai_model: str = "local-model"
 
     default_timezone: str = "America/New_York"
+    connector_encryption_key: str = ""
+
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://127.0.0.1:8000/api/connectors/google/callback"
+
+    hubspot_private_app_token: str = ""
+    outbound_webhook_url: str = ""
+    outbound_webhook_secret: str = ""
+
+    automation_enabled: bool = True
+    automation_poll_seconds: int = 30
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
