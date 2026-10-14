@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nexora AI</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">N</div>
+      <div>
+        <strong>NEXORA AI</strong>
+        <span>AI Workforce OS</span>
+      </div>
+    </div>
+
+    <nav>
+      <button class="nav active" data-scroll="overview">Overview</button>
+      <button class="nav" data-scroll="agents">AI Workforce</button>
+      <button class="nav" data-scroll="leads">Leads</button>
+      <button class="nav" data-scroll="approvals">Approvals</button>
+      <button class="nav" data-scroll="connectors">Connectors</button>
+      <button class="nav" data-scroll="activity">Activity</button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="signed-user">{{ user.name }}</div>
+      <div>{{ user.email }}</div>
+      <form method="post" action="/logout">
+        <button class="link-button">Sign out</button>
+      </form>
+    </div>
+  </aside>
+
+  <main id="overview">
+    <header>
+      <div>
+        <div class="eyebrow">NEXORA WORKSPACE</div>
+        <h1 id="workspaceName">{{ workspace.name }}</h1>
+        <p class="muted" id="workspaceMeta">{{ workspace.industry }} · {{ workspace.timezone }}</p>
+      </div>
+      <div class="header-actions">
+        <span class="status-pill"><span class="status-dot"></span>System online</span>
+        <a class="ghost" href="/docs" target="_blank">API Docs</a>
+      </div>
+    </header>
+
+    <section class="manager">
+      <div class="manager-title">
+        <div class="agent-icon manager-icon">M</div>
+        <div>
+          <div class="eyebrow">ORCHESTRATOR</div>
+          <h2>Nexora Manager</h2>
+          <p>Give your AI workforce an objective.</p>
+        </div>
+      </div>
+      <form id="managerForm">
+        <input id="managerInput" placeholder="Follow up with everyone who hasn't booked">
+        <button>Run objective</button>
+      </form>
+      <div id="managerResult" class="result hidden"></div>
+    </section>
+
+    <section class="metrics" id="metrics"></section>
+
+    <section id="agents">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">AI WORKFORCE</div>
+          <h2>Agents</h2>
+        </div>
+        <span class="hint">Enable agents and choose autonomy</span>
+      </div>
+      <div id="agentGrid" class="agent-grid"></div>
+    </section>
+
+    <section id="leads">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">REVENUE PIPELINE</div>
+          <h2>Leads</h2>
+        </div>
+        <button id="newLeadBtn" class="ghost">+ New lead</button>
+      </div>
+      <div class="panel table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Lead</th>
+              <th>Issue</th>
+              <th>Stage</th>
+              <th>Urgency</th>
+              <th>Value</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="leadRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="approvals">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">HUMAN CONTROL</div>
+          <h2>Approval queue</h2>
+        </div>
+        <button id="simulateApproval" class="ghost">Create demo approval</button>
+      </div>
+      <div class="panel" id="approvalList"></div>
+    </section>
+
+    <section id="connectors">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">INTEGRATIONS</div>
+          <h2>Connectors</h2>
+        </div>
+        <span class="hint">MVP connectors run in safe mock mode</span>
+      </div>
+      <div id="connectorGrid" class="connector-grid"></div>
+    </section>
+
+    <section id="activity">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">AUDIT TRAIL</div>
+          <h2>Recent activity</h2>
+        </div>
+      </div>
+      <div class="panel" id="activityList"></div>
+    </section>
+  </main>
+
+  <dialog id="leadDialog">
+    <div class="dialog-card">
+      <button class="close" type="button" data-close="leadDialog">×</button>
+      <div class="eyebrow">LEAD CONVERSATION</div>
+      <h2 id="dialogTitle"></h2>
+      <div id="leadSummary" class="lead-summary"></div>
+      <div id="conversation" class="conversation"></div>
+      <div class="message-compose">
+        <textarea id="messageBody" placeholder="Enter a customer message..."></textarea>
+        <button type="button" id="sendMessage">Send to Nexora</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="newLeadDialog">
+    <form id="newLeadForm" class="dialog-card">
+      <button type="button" class="close" data-close="newLeadDialog">×</button>
+      <div class="eyebrow">CAPTURE LEAD</div>
+      <h2>New inquiry</h2>
+      <div class="form-grid">
+        <input name="name" placeholder="Name" required>
+        <input name="email" placeholder="Email">
+        <input name="phone" placeholder="Phone">
+        <input name="zip_code" placeholder="ZIP code">
+        <input name="estimated_value" placeholder="Estimated value" type="number" min="0" value="0">
+        <textarea name="issue" placeholder="Issue / request"></textarea>
+      </div>
+      <button>Create lead</button>
+    </form>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

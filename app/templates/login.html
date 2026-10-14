@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nexora AI · Sign in</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="auth-body">
+  <div class="auth-shell">
+    <div class="auth-brand">
+      <div class="brand-mark">N</div>
+      <div>
+        <div class="eyebrow">AI WORKFORCE PLATFORM</div>
+        <h1>Nexora AI</h1>
+        <p>Your AI Workforce. Always On.</p>
+      </div>
+    </div>
+
+    <form class="auth-card" method="post" action="/login">
+      <h2>Sign in</h2>
+      <p class="muted">Access your Nexora workspace.</p>
+
+      {% if error %}
+      <div class="error-box">{{ error }}</div>
+      {% endif %}
+
+      <label>Email</label>
+      <input type="email" name="email" value="{{ demo_email if demo_mode else '' }}" required>
+
+      <label>Password</label>
+      <input type="password" name="password" value="{{ demo_password if demo_mode else '' }}" required>
+
+      <button type="submit">Open workspace</button>
+
+      {% if demo_mode %}
+      <div class="demo-note">
+        Local demo mode is enabled. The credentials above are seeded from your environment.
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</body>
+</html>
