@@ -273,6 +273,10 @@ def gmail_pull_unread(
     workspace_id: int,
     max_results: int = 10,
 ) -> list[dict]:
+    item = connector(db, workspace_id, "google")
+    if item and item.mode == "mock" and item.status == "connected":
+        return []
+
     token = _google_token(db, workspace_id)
     headers = {"Authorization": "Bearer " + token}
 
