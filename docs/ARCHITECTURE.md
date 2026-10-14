@@ -30,7 +30,8 @@ The D3FAULTH terminal is an internal operator surface; customers see Nexora bran
 - `app/main.py` — lifecycle, session auth, CSRF enforcement, core routes, security headers and customer error handling
 - `app/api/routes.py` — onboarding, connectors, Gmail sync, availability, handoff, revenue and external intake
 - `app/services.py` — business orchestration, customer context, dashboard and handoff lifecycle
-- `app/automation.py` — database-backed follow-up sequence and scheduler
+- `app/automation.py` — database-backed follow-up sequence and in-process scheduler
+- `app/inbox.py` — reusable Gmail intake used by automatic polling and manual sync
 - `app/connectors/providers.py` — Google, HubSpot and webhook adapters
 - `app/revenue.py` — pipeline/revenue attribution and opportunity ranking
 - `app/vault.py` — encrypted connector-secret storage
@@ -52,7 +53,7 @@ When Google is connected, Nexora reads primary-calendar free/busy and generates 
 
 ## Email
 
-Gmail ingestion stores provider events idempotently. Replies to incoming Gmail messages stay in the Gmail thread. Human replies reuse the latest known Gmail thread for the customer where available.
+Connected Gmail workspaces are polled automatically on the configured interval, and manual sync reuses the same inbox service. Gmail ingestion stores provider events idempotently. Replies preserve the provider thread, RFC reply headers and original subject. Human takeover replies use the most recent customer channel.
 
 ## Security model
 
