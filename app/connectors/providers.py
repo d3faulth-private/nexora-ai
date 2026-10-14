@@ -769,5 +769,6 @@ def gmail_reply_context_for_email(db: Session, workspace_id: int, email: str) ->
             return {
                 "thread_id": payload.get("thread_id"),
                 "in_reply_to": payload.get("message_id_header"),
+                "subject": payload.get("subject"),
             }
     return {}
