@@ -242,6 +242,14 @@ def run_due_jobs_once() -> int:
     return processed
 
 
+def sync_gmail_once() -> dict:
+    # Lazy import avoids a circular dependency: inbox orchestration uses
+    # services, while services uses this module to schedule follow-up jobs.
+    from .inbox import sync_connected_gmail_once
+
+    return sync_connected_gmail_once(max_results=20)
+
+
 def start_scheduler() -> None:
     global _scheduler
     settings = get_settings()
@@ -254,6 +262,15 @@ def start_scheduler() -> None:
         "interval",
         seconds=max(5, settings.automation_poll_seconds),
         id="nexora_due_jobs",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    _scheduler.add_job(
+        sync_gmail_once,
+        "interval",
+        seconds=max(30, settings.gmail_poll_seconds),
+        id="nexora_gmail_sync",
         replace_existing=True,
         max_instances=1,
         coalesce=True,
