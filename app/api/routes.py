@@ -632,6 +632,7 @@ def availability(
             duration_minutes=duration,
             count=max(1, min(count, 8)),
             timezone_name=workspace.timezone,
+            business_hours=profile.business_hours if profile else "",
         )
     except Exception as exc:
         raise HTTPException(502, "Calendar availability check failed.") from exc
