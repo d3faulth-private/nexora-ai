@@ -28,7 +28,7 @@ from ..connectors.providers import (
     signed_webhook,
     test_connector,
 )
-from ..models import Appointment, AutomationJob, ExternalEvent, Lead, User
+from ..models import Appointment, AutomationJob, Conversation, ExternalEvent, Lead, User
 from ..revenue import opportunity_list, record_booking_attribution, record_completed_revenue, revenue_summary
 from ..security import csrf_valid
 from ..schemas import (
@@ -712,6 +712,33 @@ def customer_history(lead_id: int, request: Request, db: Session = Depends(get_d
         )
     ]
 
+    history_leads = [lead] + related
+    history_ids = [item.id for item in history_leads]
+    names = {item.id: item.name for item in history_leads}
+
+    appointments = list(
+        db.scalars(
+            select(Appointment)
+            .where(
+                Appointment.workspace_id == workspace.id,
+                Appointment.lead_id.in_(history_ids),
+            )
+            .order_by(Appointment.starts_at.desc())
+            .limit(20)
+        )
+    )
+    conversations = list(
+        db.scalars(
+            select(Conversation)
+            .where(
+                Conversation.workspace_id == workspace.id,
+                Conversation.lead_id.in_(history_ids),
+            )
+            .order_by(Conversation.created_at.desc())
+            .limit(20)
+        )
+    )
+
     return {
         "customer": {
             "name": lead.name,
@@ -727,5 +754,24 @@ def customer_history(lead_id: int, request: Request, db: Session = Depends(get_d
                 "created_at": item.created_at,
             }
             for item in related[:10]
+        ],
+        "appointments": [
+            {
+                "lead_id": item.lead_id,
+                "lead_name": names.get(item.lead_id, "Customer"),
+                "status": item.status,
+                "starts_at": item.starts_at,
+            }
+            for item in appointments
+        ],
+        "conversations": [
+            {
+                "lead_id": item.lead_id,
+                "channel": item.channel,
+                "status": item.status,
+                "message_count": len(item.messages),
+                "created_at": item.created_at,
+            }
+            for item in conversations
         ],
     }
