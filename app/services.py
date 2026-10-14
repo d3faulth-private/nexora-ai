@@ -458,6 +458,7 @@ def process_customer_message(
                 proposed_start,
                 duration_minutes=duration,
                 count=3,
+                timezone_name=workspace.timezone,
             )
             if slots:
                 proposed_start = slots[0]
