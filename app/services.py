@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .agents import AgentDecision, customer_decision, followup_message, manager_intent, route_message
 from .automation import schedule_followup_for_lead
 from .hvac import hvac_knowledge_text
-from .integrations import hubspot_upsert_contact, signed_webhook
+from .connectors.providers import hubspot_upsert_contact, signed_webhook
 from .models import (
     Activity,
     Agent,
