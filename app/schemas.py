@@ -58,6 +58,7 @@ class OnboardingUpdate(BaseModel):
     service_area: str = Field(min_length=1)
     business_hours: str = Field(min_length=1)
     emergency_policy: str = Field(min_length=1)
+    knowledge_summary: str = ""
     booking_duration_minutes: int = Field(default=60, ge=15, le=480)
     followup_after_minutes: int = Field(default=120, ge=15, le=10080)
     followup_max_attempts: int = Field(default=3, ge=0, le=10)
