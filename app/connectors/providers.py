@@ -394,6 +394,15 @@ def hubspot_upsert_contact(
         raise RuntimeError("HubSpot is not connected.")
 
     email = str(contact.get("email") or "").strip()
+    stage = str(contact.get("stage") or "").lower()
+    lifecycle = None
+    if stage in {"qualified", "booked"}:
+        lifecycle = "opportunity"
+    elif stage == "completed":
+        lifecycle = "customer"
+    elif stage and stage != "lost":
+        lifecycle = "lead"
+
     properties = {
         key: value
         for key, value in {
@@ -401,6 +410,7 @@ def hubspot_upsert_contact(
             "firstname": contact.get("name"),
             "phone": contact.get("phone"),
             "zip": contact.get("zip_code"),
+            "lifecyclestage": lifecycle,
         }.items()
         if value
     }
