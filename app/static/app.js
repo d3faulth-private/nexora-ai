@@ -69,8 +69,8 @@ function renderProfile() {
   const services = (p.services || []).slice(0, 6).join(", ");
   el("#profileCard").innerHTML =
     '<div><span class="profile-label">Status</span><strong>' + (p.onboarding_completed ? "Configured" : "Needs setup") + '</strong></div>' +
-    '<div><span class="profile-label">Services</span><strong>' + (services || "Not configured") + '</strong></div>' +
-    '<div><span class="profile-label">Service area</span><strong>' + (p.service_area || "Not configured") + '</strong></div>' +
+    '<div><span class="profile-label">Services</span><strong>' + esc(services || "Not configured") + '</strong></div>' +
+    '<div><span class="profile-label">Service area</span><strong>' + esc(p.service_area || "Not configured") + '</strong></div>' +
     '<div><span class="profile-label">Follow-up</span><strong>' + (p.followup_after_minutes || 120) + ' min · ' + (p.followup_max_attempts || 3) + ' attempts</strong></div>';
 }
 
@@ -86,7 +86,7 @@ function renderAgents() {
     return '<div class="agent-card">' +
       '<div class="agent-top">' +
       '<div class="agent-icon">' + initial + '</div>' +
-      '<div class="agent-meta"><strong>' + agent.name + '</strong><p>' + agent.role + '</p></div>' +
+      '<div class="agent-meta"><strong>' + esc(agent.name) + '</strong><p>' + esc(agent.role) + '</p></div>' +
       '</div>' +
       '<div class="agent-controls">' +
       '<button class="toggle ' + (agent.enabled ? 'on' : '') + '" onclick="toggleAgent(\'' + agent.slug + '\')">' +
@@ -100,11 +100,11 @@ function renderAgents() {
 function renderLeads() {
   el("#leadRows").innerHTML = state.leads.map(function(lead) {
     return '<tr>' +
-      '<td><strong>' + esc(lead.name) + '</strong><br><small>' + lead.source + '</small></td>' +
+      '<td><strong>' + esc(lead.name) + '</strong><br><small>' + esc(lead.source) + '</small></td>' +
       '<td>' + esc(lead.issue || "—") + '</td>' +
-      '<td><span class="stage">' + lead.stage + '</span></td>' +
+      '<td><span class="stage">' + esc(lead.stage) + '</span></td>' +
       '<td><span class="control ' + (lead.human_control ? "human" : "ai") + '">' + (lead.human_control ? "HUMAN" : "AI") + '</span></td>' +
-      '<td class="' + (lead.urgency === "urgent" ? "urgent" : "") + '">' + lead.urgency + '</td>' +
+      '<td class="' + (lead.urgency === "urgent" ? "urgent" : "") + '">' + esc(lead.urgency) + '</td>' +
       '<td>' + money(lead.estimated_value) + '</td>' +
       '<td><button class="view" onclick="openLead(' + lead.id + ')">Open</button></td>' +
       '</tr>';
@@ -114,8 +114,8 @@ function renderLeads() {
 function renderApprovals() {
   el("#approvalList").innerHTML = state.approvals.length ? state.approvals.map(function(item) {
     return '<div class="approval-item">' +
-      '<div class="approval-agent">' + item.agent_slug + '</div>' +
-      '<div><strong>' + item.action_type + '</strong><br><span class="muted">' + esc(item.reason) + '</span></div>' +
+      '<div class="approval-agent">' + esc(item.agent_slug) + '</div>' +
+      '<div><strong>' + esc(item.action_type) + '</strong><br><span class="muted">' + esc(item.reason) + '</span></div>' +
       '<div class="approval-actions">' +
       '<button class="approve" onclick="resolveApproval(' + item.id + ', \'approved\')">Approve</button>' +
       '<button class="reject" onclick="resolveApproval(' + item.id + ', \'rejected\')">Reject</button>' +
@@ -142,8 +142,8 @@ function renderConnectors() {
     .map(function(item) {
       return '<div class="connector-card">' +
         '<strong>' + esc(item.name) + '</strong>' +
-        '<span>' + item.mode + ' mode</span>' +
-        '<span class="connector-status">● ' + item.status + '</span>' +
+        '<span>' + esc(item.mode) + ' mode</span>' +
+        '<span class="connector-status">● ' + esc(item.status) + '</span>' +
         '<div class="connector-actions">' + connectorAction(item) + '</div>' +
         '</div>';
     }).join("");
@@ -152,7 +152,7 @@ function renderConnectors() {
 function renderActivity() {
   el("#activityList").innerHTML = state.activities.length ? state.activities.map(function(item) {
     return '<div class="activity-item">' +
-      '<div class="activity-agent">' + item.agent_slug + '</div>' +
+      '<div class="activity-agent">' + esc(item.agent_slug) + '</div>' +
       '<div>' + esc(item.summary) + '</div>' +
       '<div class="activity-time">' + timeText(item.created_at) + '</div>' +
       '</div>';
@@ -202,15 +202,15 @@ window.openLead = async function(id) {
   const row = state.leads.find(function(item) { return item.id === id; });
   const human = !!(row && row.human_control);
 
-  el("#dialogTitle").textContent = esc(lead.name) + " · " + lead.stage;
+  el("#dialogTitle").textContent = lead.name + " · " + lead.stage;
   el("#leadSummary").innerHTML =
-    '<span>' + (lead.phone || "No phone") + '</span>' +
-    '<span>' + (lead.email || "No email") + '</span>' +
+    '<span>' + esc(lead.phone || "No phone") + '</span>' +
+    '<span>' + esc(lead.email || "No email") + '</span>' +
     '<span>' + money(lead.estimated_value) + '</span>';
 
   el("#conversation").innerHTML = lead.messages.length ? lead.messages.map(function(message) {
     return '<div class="bubble ' + message.direction + '">' +
-      '<small>' + message.actor + ' · ' + timeText(message.created_at) + '</small>' +
+      '<small>' + esc(message.actor) + ' · ' + timeText(message.created_at) + '</small>' +
       esc(message.body) +
       '</div>';
   }).join("") : '<div class="hint">No messages yet. Send a customer message to test the workforce.</div>';
