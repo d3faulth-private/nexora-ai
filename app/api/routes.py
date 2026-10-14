@@ -228,20 +228,20 @@ def hubspot_connect(
         db,
         workspace.id,
         "hubspot",
-        status="connected",
+        status="disconnected",
         mode="real",
     )
     db.commit()
 
     try:
-        hubspot_upsert_contact(
-            db,
-            workspace.id,
-            {"name": "Nexora Connection Test"},
-        )
-    except Exception:
-        pass
+        test_connector(db, workspace.id, "hubspot")
+    except Exception as exc:
+        mark_connector(db, workspace.id, "hubspot", status="degraded", mode="real")
+        db.commit()
+        raise HTTPException(502, "HubSpot credential validation failed.") from exc
 
+    mark_connector(db, workspace.id, "hubspot", status="connected", mode="real")
+    db.commit()
     return {"ok": True, "slug": "hubspot", "status": "connected"}
 
 
