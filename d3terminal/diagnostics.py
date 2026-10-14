@@ -6,7 +6,7 @@ from sqlalchemy import func, select, text
 
 from app.config import get_settings
 from app.db import SessionLocal, engine
-from app.models import Agent, AutomationJob, Connector, Lead, Workspace
+from app.models import Agent, AutomationJob, Connector, ConnectorSecret, Lead, Workspace
 from app.revenue import opportunity_list, revenue_summary
 
 
@@ -21,9 +21,15 @@ def _workspace(db):
     return db.scalar(select(Workspace).order_by(Workspace.id))
 
 
-def connector_health(item: Connector) -> str:
+def connector_health(db, item: Connector) -> str:
     settings = get_settings()
-    configured = item.mode == "real" or (item.config_json or "{}") not in {"", "{}"}
+    secret_exists = db.scalar(
+        select(func.count(ConnectorSecret.id)).where(
+            ConnectorSecret.workspace_id == item.workspace_id,
+            ConnectorSecret.connector_slug == item.slug,
+        )
+    )
+    configured = bool(secret_exists) or (item.config_json or "{}") not in {"", "{}"}
     if item.slug == "google":
         configured = configured or bool(settings.google_client_id and settings.google_client_secret)
     elif item.slug == "hubspot":
@@ -103,7 +109,7 @@ def snapshot() -> dict:
                 "name": item.name,
                 "status": item.status,
                 "mode": item.mode,
-                "health": connector_health(item),
+                "health": connector_health(db, item),
                 "last_sync_at": item.last_sync_at,
             }
             for item in connector_rows
