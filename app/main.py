@@ -16,7 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from .automation import start_scheduler, stop_scheduler
 from .config import get_settings
 from .db import Base, SessionLocal, engine, get_db
-from .models import Agent, Approval, Appointment, Connector, Conversation, KnowledgeEntry, Lead, Message, Task, User
+from .models import Agent, Approval, Appointment, AutomationJob, Connector, Conversation, KnowledgeEntry, Lead, Message, Task, User
 from .schemas import AppointmentCreate, ConnectorUpdate, KnowledgeCreate, LeadCreate, LeadUpdate, ManagerCommand, MessageCreate
 from .revenue import record_booking_attribution
 from .seed import seed_demo
@@ -270,8 +270,21 @@ def update_lead(lead_id: int, payload: LeadUpdate, request: Request, db: Session
     lead = db.scalar(select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id))
     if not lead:
         raise HTTPException(404, "Lead not found")
-    for key, value in payload.model_dump(exclude_none=True).items():
+    changes = payload.model_dump(exclude_none=True)
+    for key, value in changes.items():
         setattr(lead, key, value)
+
+    if changes.get("stage") in {"booked", "completed", "lost"}:
+        for job in db.scalars(
+            select(AutomationJob).where(
+                AutomationJob.workspace_id == workspace.id,
+                AutomationJob.lead_id == lead.id,
+                AutomationJob.status == "pending",
+            )
+        ):
+            job.status = "cancelled"
+            job.last_error = "Lead entered terminal follow-up state: " + lead.stage + "."
+
     activity(db, workspace.id, "operations", "lead_updated", "Updated lead: " + lead.name + ".", "lead", lead.id)
     db.commit()
     return {"id": lead.id, "stage": lead.stage, "urgency": lead.urgency}
