@@ -1,0 +1,36 @@
+services:
+  nexora:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: development
+      APP_SECRET: ${APP_SECRET:-local-development-secret-change-me}
+      DATABASE_URL: postgresql+psycopg://nexora:nexora@db:5432/nexora
+      DEMO_MODE: "true"
+      DEMO_EMAIL: ${DEMO_EMAIL:-admin@nexora.local}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-nexora-demo}
+      AI_PROVIDER: ${AI_PROVIDER:-local}
+      AI_BASE_URL: ${AI_BASE_URL:-http://host.docker.internal:11434/v1}
+      AI_API_KEY: ${AI_API_KEY:-local}
+      AI_MODEL: ${AI_MODEL:-local-model}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: nexora
+      POSTGRES_USER: nexora
+      POSTGRES_PASSWORD: nexora
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexora -d nexora"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - nexora_db:/var/lib/postgresql/data
+
+volumes:
+  nexora_db:
