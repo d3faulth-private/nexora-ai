@@ -29,6 +29,7 @@ from .models import (
     WorkspaceProfile,
 )
 from .policy import evaluate_action
+from .revenue import opportunity_list, revenue_summary
 from .security import verify_password
 
 
@@ -709,11 +710,9 @@ def dashboard(db: Session, workspace: Workspace) -> dict:
             UsageEvent.workspace_id == workspace.id
         )
     )
-    pipeline = sum(
-        lead.estimated_value
-        for lead in leads
-        if lead.stage not in ("lost", "completed")
-    )
+    revenue = revenue_summary(db, workspace.id)
+    opportunities = opportunity_list(db, workspace.id, limit=8)
+    pipeline = revenue["pipeline"]
     profile = get_profile(db, workspace.id)
 
     lead_rows = []
@@ -770,6 +769,10 @@ def dashboard(db: Session, workspace: Workspace) -> dict:
             "open_tasks": len(tasks),
             "pending_automations": int(pending_jobs or 0),
             "estimated_ai_cost": float(usage_cost or 0),
+            "booked_pipeline": revenue["booked_pipeline"],
+            "completed_revenue": revenue["completed_revenue"],
+            "recovered_revenue": revenue["recovered_revenue"],
+            "open_opportunity": revenue["open_opportunity"],
         },
         "agents": [
             {
@@ -783,6 +786,7 @@ def dashboard(db: Session, workspace: Workspace) -> dict:
             for agent in agents
         ],
         "leads": lead_rows,
+        "opportunities": opportunities,
         "approvals": [
             {
                 "id": item.id,
