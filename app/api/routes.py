@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import secrets
+from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -13,17 +14,23 @@ from ..automation import run_due_jobs_once
 from ..config import get_settings
 from ..db import get_db
 from ..connectors.providers import (
+    connector,
+    disconnect_connector,
     exchange_google_code,
     get_secret,
     gmail_pull_unread,
+    gmail_send,
     google_authorization_url,
+    google_available_slots,
     google_calendar_create,
     hubspot_upsert_contact,
     mark_connector,
     set_secret,
+    test_connector,
 )
 from ..models import Appointment, Conversation, Lead, User
 from ..revenue import opportunity_list, record_booking_attribution, record_completed_revenue, revenue_summary
+from ..security import csrf_valid
 from ..schemas import (
     HubSpotConnect,
     HumanMessageCreate,
@@ -59,6 +66,9 @@ def context(request: Request, db: Session):
     workspace = get_workspace(db, user.workspace_id)
     if not workspace:
         raise HTTPException(404, "Workspace not found")
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        if not csrf_valid(request.session.get("csrf_token"), request.headers.get("X-Nexora-CSRF")):
+            raise HTTPException(403, "Invalid CSRF token")
     return user, workspace
 
 
@@ -264,6 +274,8 @@ def webhook_connect(
 @router.post("/api/connectors/{slug}/mock")
 def connector_mock(slug: str, request: Request, db: Session = Depends(get_db)):
     _, workspace = context(request, db)
+    if not settings.demo_mode:
+        raise HTTPException(403, "Mock connectors are disabled in live mode.")
     item = mark_connector(
         db,
         workspace.id,
@@ -320,13 +332,25 @@ def gmail_sync(request: Request, db: Session = Depends(get_db)):
         ).strip()
 
         if body:
-            process_customer_message(
+            decision, _, _ = process_customer_message(
                 db,
                 workspace,
                 lead,
                 body,
                 "email",
             )
+            if decision.reply and lead.email:
+                try:
+                    gmail_send(
+                        db,
+                        workspace.id,
+                        lead.email,
+                        "Re: " + (incoming.get("subject") or "Your service request"),
+                        decision.reply,
+                        thread_id=str(incoming.get("thread_id") or "") or None,
+                    )
+                except Exception:
+                    pass
             created.append(lead.id)
 
     return {
@@ -512,4 +536,104 @@ def complete_job(
         "lead_id": lead.id,
         "stage": lead.stage,
         "revenue": event.amount,
+    }
+
+
+
+@router.get("/api/availability")
+def availability(
+    request: Request,
+    start: str | None = None,
+    count: int = 3,
+    db: Session = Depends(get_db),
+):
+    _, workspace = context(request, db)
+    profile = get_profile(db, workspace.id)
+    duration = profile.booking_duration_minutes if profile else 60
+
+    if start:
+        desired = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    else:
+        desired = datetime.now(timezone.utc) + timedelta(hours=2)
+
+    try:
+        slots = google_available_slots(
+            db,
+            workspace.id,
+            desired,
+            duration_minutes=duration,
+            count=max(1, min(count, 8)),
+        )
+    except Exception as exc:
+        raise HTTPException(502, "Calendar availability check failed.") from exc
+
+    return {
+        "calendar_connected": bool(slots),
+        "duration_minutes": duration,
+        "slots": [item.isoformat() for item in slots],
+    }
+
+
+@router.post("/api/connectors/{slug}/test")
+def connector_test(slug: str, request: Request, db: Session = Depends(get_db)):
+    _, workspace = context(request, db)
+    try:
+        result = test_connector(db, workspace.id, slug)
+        item = mark_connector(db, workspace.id, slug, status="connected", mode=(connector(db, workspace.id, slug).mode if connector(db, workspace.id, slug) else "real"))
+        db.commit()
+        return {"ok": result.ok, "slug": slug, "detail": result.detail, "status": item.status}
+    except Exception as exc:
+        item = mark_connector(db, workspace.id, slug, status="degraded", mode=(connector(db, workspace.id, slug).mode if connector(db, workspace.id, slug) else "real"))
+        db.commit()
+        raise HTTPException(502, "Connector health check failed.") from exc
+
+
+@router.post("/api/connectors/{slug}/disconnect")
+def connector_disconnect(slug: str, request: Request, db: Session = Depends(get_db)):
+    _, workspace = context(request, db)
+    if slug not in {"google", "hubspot", "webhook"}:
+        raise HTTPException(404, "Unknown connector.")
+    disconnect_connector(db, workspace.id, slug)
+    return {"ok": True, "slug": slug, "status": "disconnected"}
+
+
+@router.get("/api/customers/{lead_id}/history")
+def customer_history(lead_id: int, request: Request, db: Session = Depends(get_db)):
+    _, workspace = context(request, db)
+    lead = db.scalar(select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id))
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+
+    candidates = list(
+        db.scalars(
+            select(Lead)
+            .where(Lead.workspace_id == workspace.id)
+            .order_by(Lead.created_at.desc())
+        )
+    )
+    related = [
+        item for item in candidates
+        if item.id != lead.id
+        and (
+            (lead.email and item.email and item.email.lower() == lead.email.lower())
+            or (lead.phone and item.phone and item.phone == lead.phone)
+        )
+    ]
+
+    return {
+        "customer": {
+            "name": lead.name,
+            "email": lead.email,
+            "phone": lead.phone,
+        },
+        "previous_requests": [
+            {
+                "id": item.id,
+                "stage": item.stage,
+                "issue": item.issue,
+                "estimated_value": item.estimated_value,
+                "created_at": item.created_at,
+            }
+            for item in related[:10]
+        ],
     }
