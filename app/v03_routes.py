@@ -23,6 +23,7 @@ from .integrations import (
     set_secret,
 )
 from .models import Appointment, Conversation, Lead, User
+from .revenue import opportunity_list, record_booking_attribution, record_completed_revenue, revenue_summary
 from .schemas import (
     HubSpotConnect,
     HumanMessageCreate,
@@ -357,6 +358,7 @@ def book_lead(lead_id: int, request: Request, db: Session = Depends(get_db)):
 
     appointment.status = "confirmed"
     lead.stage = "booked"
+    record_booking_attribution(db, workspace.id, lead, source="ai_booking")
 
     profile = get_profile(db, workspace.id)
     duration = profile.booking_duration_minutes if profile else 60
@@ -445,4 +447,69 @@ def external_intake(
         "agent": decision.agent,
         "stage": lead.stage,
         "appointment_proposed": appointment is not None,
+    }
+
+
+
+@router.get("/api/revenue/summary")
+def revenue_report(request: Request, db: Session = Depends(get_db)):
+    _, workspace = context(request, db)
+    return revenue_summary(db, workspace.id)
+
+
+@router.get("/api/opportunities")
+def opportunities(request: Request, db: Session = Depends(get_db)):
+    _, workspace = context(request, db)
+    items = opportunity_list(db, workspace.id, limit=20)
+    return {
+        "count": len(items),
+        "estimated_value": sum(item["estimated_value"] for item in items),
+        "items": items,
+    }
+
+
+@router.post("/api/leads/{lead_id}/complete-job")
+def complete_job(
+    lead_id: int,
+    payload: dict,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    _, workspace = context(request, db)
+    lead = db.scalar(
+        select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id)
+    )
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+
+    amount_raw = payload.get("actual_amount")
+    actual_amount = float(amount_raw) if amount_raw is not None else None
+    lead.stage = "completed"
+
+    appointment = db.scalar(
+        select(Appointment)
+        .where(
+            Appointment.workspace_id == workspace.id,
+            Appointment.lead_id == lead.id,
+            Appointment.status == "confirmed",
+        )
+        .order_by(Appointment.starts_at.desc())
+    )
+    if appointment:
+        appointment.status = "completed"
+
+    event = record_completed_revenue(
+        db,
+        workspace.id,
+        lead,
+        actual_amount=actual_amount,
+        source="operator",
+    )
+    db.commit()
+    db.refresh(event)
+    return {
+        "ok": True,
+        "lead_id": lead.id,
+        "stage": lead.stage,
+        "revenue": event.amount,
     }
