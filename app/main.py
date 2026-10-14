@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -20,6 +20,7 @@ from .models import Agent, Approval, Appointment, Connector, Conversation, Knowl
 from .schemas import AppointmentCreate, ConnectorUpdate, KnowledgeCreate, LeadCreate, LeadUpdate, ManagerCommand, MessageCreate
 from .revenue import record_booking_attribution
 from .seed import seed_demo
+from .security import csrf_token, csrf_valid, clear_login_failures, login_blocked, login_key, record_login_failure
 from .api.routes import router as api_router
 from .services import (
     activity,
@@ -38,6 +39,7 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings.validate_runtime()
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_demo(db)
@@ -48,17 +50,49 @@ async def lifespan(app: FastAPI):
         stop_scheduler()
 
 
-app = FastAPI(title=settings.app_name, version="0.4.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="0.5.0", lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.app_secret,
     same_site="lax",
     https_only=settings.app_env == "production",
+    max_age=settings.session_max_age_seconds,
 )
 
 app.include_router(api_router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; style-src 'self'; script-src 'self'; "
+        "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+    )
+    if settings.app_env == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
+@app.exception_handler(Exception)
+async def unhandled_error(request: Request, exc: Exception):
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(
+            {"error": "request_failed", "message": "Nexora could not complete this request."},
+            status_code=500,
+        )
+    return templates.TemplateResponse(
+        request=request,
+        name="error.html",
+        context={"app_name": settings.app_name},
+        status_code=500,
+    )
 
 
 def session_user(request: Request, db: Session) -> User | None:
@@ -81,6 +115,9 @@ def require_user(request: Request, db: Session) -> User:
 
 def require_workspace(request: Request, db: Session):
     user = require_user(request, db)
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        if not csrf_valid(request.session.get("csrf_token"), request.headers.get("X-Nexora-CSRF")):
+            raise HTTPException(403, "Invalid CSRF token")
     workspace = get_workspace(db, user.workspace_id)
     if not workspace:
         raise HTTPException(404, "Workspace not found")
@@ -89,10 +126,18 @@ def require_workspace(request: Request, db: Session):
 
 @app.get("/health")
 def health():
+    database = "ok"
+    try:
+        with engine.connect() as connection:
+            connection.exec_driver_sql("SELECT 1")
+    except Exception:
+        database = "error"
     return {
-        "status": "ok",
+        "status": "ok" if database == "ok" else "degraded",
         "app": settings.app_name,
-        "version": "0.4.0",
+        "version": "0.5.0",
+        "mode": "demo" if settings.demo_mode else "live",
+        "database": database,
         "ai_provider": settings.ai_provider,
     }
 
@@ -121,8 +166,26 @@ def login(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    user = authenticate(db, email.strip().lower(), password)
+    normalized_email = email.strip().lower()
+    client_ip = request.client.host if request.client else "unknown"
+    key = login_key(client_ip, normalized_email)
+    if login_blocked(key):
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={
+                "app_name": settings.app_name,
+                "demo_mode": settings.demo_mode,
+                "demo_email": settings.demo_email,
+                "demo_password": settings.demo_password if settings.demo_mode else "",
+                "error": "Too many sign-in attempts. Try again later.",
+            },
+            status_code=429,
+        )
+
+    user = authenticate(db, normalized_email, password)
     if not user:
+        record_login_failure(key)
         return templates.TemplateResponse(
             request=request,
             name="login.html",
@@ -136,13 +199,18 @@ def login(
             status_code=401,
         )
 
+    clear_login_failures(key)
+    request.session.clear()
     request.session["user_id"] = user.id
     request.session["workspace_id"] = user.workspace_id
+    request.session["csrf_token"] = csrf_token()
     return RedirectResponse("/", status_code=303)
 
 
 @app.post("/logout")
-def logout(request: Request):
+def logout(request: Request, csrf: str = Form("")):
+    if not csrf_valid(request.session.get("csrf_token"), csrf):
+        raise HTTPException(403, "Invalid CSRF token")
     request.session.clear()
     return RedirectResponse("/login", status_code=303)
 
@@ -160,6 +228,9 @@ def home(request: Request, db: Session = Depends(get_db)):
             "app_name": settings.app_name,
             "user": user,
             "workspace": workspace,
+            "csrf_token": request.session.get("csrf_token", ""),
+            "demo_mode": settings.demo_mode,
+            "app_env": settings.app_env,
         },
     )
 
@@ -170,6 +241,8 @@ def api_me(request: Request, db: Session = Depends(get_db)):
     return {
         "user": {"id": user.id, "email": user.email, "name": user.name, "role": user.role},
         "workspace": {"id": workspace.id, "name": workspace.name, "industry": workspace.industry},
+        "mode": "demo" if settings.demo_mode else "live",
+        "csrf_token": request.session.get("csrf_token", ""),
     }
 
 
