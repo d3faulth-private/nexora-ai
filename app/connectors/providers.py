@@ -4,6 +4,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
@@ -536,6 +537,53 @@ def signed_webhook(
 
 
 
+
+
+_DAY_INDEX = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+
+
+def _clock_minutes(hour: int, minute: int, meridiem: str) -> int:
+    hour = hour % 12
+    if meridiem.lower() == "pm":
+        hour += 12
+    return hour * 60 + minute
+
+
+def _business_hours_rule(value: str) -> tuple[set[int], int, int]:
+    text = (value or "").strip().lower()
+    if "24/7" in text:
+        return set(range(7)), 0, 24 * 60
+
+    days = {0, 1, 2, 3, 4, 5}
+    day_match = re.search(r"(mon|tue|wed|thu|fri|sat|sun)\s*[-–]\s*(mon|tue|wed|thu|fri|sat|sun)", text)
+    if day_match:
+        start_day = _DAY_INDEX[day_match.group(1)]
+        end_day = _DAY_INDEX[day_match.group(2)]
+        if start_day <= end_day:
+            days = set(range(start_day, end_day + 1))
+
+    hour_match = re.search(
+        r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*[-–]\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)",
+        text,
+    )
+    if not hour_match:
+        return days, 8 * 60, 18 * 60
+
+    start_minutes = _clock_minutes(
+        int(hour_match.group(1)),
+        int(hour_match.group(2) or 0),
+        hour_match.group(3),
+    )
+    end_minutes = _clock_minutes(
+        int(hour_match.group(4)),
+        int(hour_match.group(5) or 0),
+        hour_match.group(6),
+    )
+    if end_minutes <= start_minutes:
+        end_minutes = 24 * 60
+    return days, start_minutes, end_minutes
+
+
 def google_calendar_freebusy(
     db: Session,
     workspace_id: int,
@@ -579,6 +627,7 @@ def google_available_slots(
     duration_minutes: int,
     count: int = 3,
     timezone_name: str = "UTC",
+    business_hours: str = "",
 ) -> list[datetime]:
     if desired_start.tzinfo is None:
         desired_start = desired_start.replace(tzinfo=timezone.utc)
@@ -590,6 +639,7 @@ def google_available_slots(
         return [desired_start + timedelta(minutes=30 * index) for index in range(count)]
 
     business_tz = ZoneInfo(timezone_name)
+    allowed_days, day_start, day_end = _business_hours_rule(business_hours)
     cursor = desired_start.astimezone(business_tz)
     window_end = cursor + timedelta(days=3)
     busy = google_calendar_freebusy(db, workspace_id, cursor, window_end)
@@ -601,9 +651,15 @@ def google_available_slots(
     cursor = cursor.replace(minute=minute, second=0, microsecond=0) + timedelta(hours=hour_add)
 
     while cursor + duration <= window_end and len(slots) < count:
-        local_hour = cursor.hour
-        if 8 <= local_hour < 18:
-            end = cursor + duration
+        start_minutes = cursor.hour * 60 + cursor.minute
+        end = cursor + duration
+        end_minutes = end.hour * 60 + end.minute
+        valid_business_window = (
+            cursor.weekday() in allowed_days
+            and start_minutes >= day_start
+            and end_minutes <= day_end
+        )
+        if valid_business_window:
             conflict = any(cursor < busy_end and end > busy_start for busy_start, busy_end in busy)
             if not conflict:
                 slots.append(cursor)
