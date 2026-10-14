@@ -6,7 +6,7 @@ import time
 import webbrowser
 from dataclasses import dataclass, field
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import InMemoryHistory
 from datetime import datetime, timezone
@@ -18,7 +18,7 @@ from app.seed import seed_demo
 from . import diagnostics
 from .branding import VERSION, banner, fail, info, ok, prompt, warn
 from .runtime import ServerRuntime
-from .theme import D3_STYLE
+from .theme import D3_STYLE, message_tokens
 
 
 HELP = """D3FAULTH // NEXORA COMMANDS
@@ -84,6 +84,9 @@ class OperatorShell:
             complete_while_typing=False,
         )
 
+    def _emit(self, level: str, message: str) -> None:
+        print_formatted_text(message_tokens(level, message), style=D3_STYLE)
+
     def initialize(self) -> None:
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
@@ -92,14 +95,14 @@ class OperatorShell:
     def run(self) -> int:
         self.initialize()
         print(banner(self.settings.app_env))
-        print(info("Type 'help' for commands. Ctrl+C cancels input; 'exit' performs graceful shutdown."))
+        self._emit("info", "Type 'help' for commands. Ctrl+C cancels input; 'exit' performs graceful shutdown.")
         while not self._closing:
             try:
                 raw = self._session.prompt(prompt(self.settings.app_env)).strip()
             except KeyboardInterrupt:
                 print()
                 self.stats.warnings += 1
-                print(warn("Input cancelled. Use 'exit' for graceful shutdown."))
+                self._emit("warn", "Input cancelled. Use 'exit' for graceful shutdown.")
                 continue
             except EOFError:
                 print()
@@ -110,7 +113,7 @@ class OperatorShell:
 
             commands = [line.strip() for line in raw.splitlines() if line.strip()]
             if len(commands) > 1:
-                print(info(str(len(commands)) + " pasted commands detected; executing sequentially."))
+                self._emit("info", str(len(commands)) + " pasted commands detected; executing sequentially.")
 
             for raw_command in commands:
                 command = self._normalize(raw_command)
@@ -121,12 +124,12 @@ class OperatorShell:
                 except KeyboardInterrupt:
                     self.stats.warnings += 1
                     print()
-                    print(warn("Operation cancelled by operator."))
+                    self._emit("warn", "Operation cancelled by operator.")
                     break
                 except Exception as exc:
                     self.stats.failures += 1
-                    print(fail(str(exc)))
-                    print(info("Run 'why last' or 'doctor' for diagnostics."))
+                    self._emit("fail", str(exc))
+                    self._emit("info", "Run 'why last' or 'doctor' for diagnostics.")
         return self.shutdown()
 
     def _normalize(self, raw: str) -> str:
@@ -185,7 +188,7 @@ class OperatorShell:
         elif command == "connectors":
             self.show_connectors()
         elif command == "why":
-            print(info(diagnostics.explain_last_problem()))
+            self._emit("info", diagnostics.explain_last_problem())
         elif command == "logs":
             limit = 50
             if "--tail" in parts:
@@ -201,30 +204,30 @@ class OperatorShell:
         elif command == "history":
             print("\n".join(self.stats.history) or "No commands yet.")
         elif command == "serve":
-            print(info("Starting Nexora and waiting for /health..."))
+            self._emit("info", "Starting Nexora and waiting for /health...")
             if self.runtime.start():
-                print(ok("Nexora server started: " + self.runtime.base_url))
-                print(ok("Health check: " + self.runtime.health()))
+                self._emit("ok", "Nexora server started: " + self.runtime.base_url)
+                self._emit("ok", "Health check: " + self.runtime.health())
                 if self.runtime.pid:
-                    print(info("Managed PID: " + str(self.runtime.pid)))
+                    self._emit("info", "Managed PID: " + str(self.runtime.pid))
             else:
-                print(warn("Nexora server is already running from this console."))
+                self._emit("warn", "Nexora server is already running from this console.")
         elif command == "stop":
             if self.runtime.stop():
-                print(ok("Nexora server stopped."))
+                self._emit("ok", "Nexora server stopped.")
             else:
-                print(warn("No managed Nexora server is running."))
+                self._emit("warn", "No managed Nexora server is running.")
         elif command == "restart":
-            print(info("Restarting Nexora and waiting for /health..."))
+            self._emit("info", "Restarting Nexora and waiting for /health...")
             self.runtime.restart()
-            print(ok("Nexora server restarted: " + self.runtime.health()))
+            self._emit("ok", "Nexora server restarted: " + self.runtime.health())
         elif command == "open":
             webbrowser.open("http://127.0.0.1:8000")
-            print(ok("Dashboard open request sent to the browser."))
+            self._emit("ok", "Dashboard open request sent to the browser.")
         else:
             self.stats.warnings += 1
-            print(warn("Unknown command: " + command))
-            print(info("Type 'help' for available commands."))
+            self._emit("warn", "Unknown command: " + command)
+            self._emit("info", "Type 'help' for available commands.")
         return False
 
     def show_status(self) -> None:
@@ -267,19 +270,19 @@ class OperatorShell:
         ]
 
         if data["overall_health"] == "FAILED":
-            print(fail("Core diagnostic failed."))
+            self._emit("fail", "Core diagnostic failed.")
         elif actionable:
             self.stats.warnings += 1
-            print(warn(str(len(actionable)) + " configured integration(s) require attention."))
+            self._emit("warn", str(len(actionable)) + " configured integration(s) require attention.")
         elif optional:
-            print(ok("Core system healthy. " + str(len(optional)) + " optional integration(s) are not configured."))
+            self._emit("ok", "Core system healthy. " + str(len(optional)) + " optional integration(s) are not configured.")
         else:
-            print(ok("Core diagnostic is healthy."))
+            self._emit("ok", "Core diagnostic is healthy.")
 
     def show_revenue(self) -> None:
         revenue = diagnostics.snapshot()["revenue"]
         if not revenue:
-            print(warn("Revenue data is unavailable."))
+            self._emit("warn", "Revenue data is unavailable.")
             return
         print("NEXORA // COMMERCIAL SNAPSHOT")
         print("  pipeline........... $" + format(revenue["pipeline"], ",.0f"))
@@ -291,7 +294,7 @@ class OperatorShell:
     def show_opportunities(self) -> None:
         items = diagnostics.snapshot()["opportunities"]
         if not items:
-            print(ok("No open revenue opportunities detected."))
+            self._emit("ok", "No open revenue opportunities detected.")
             return
         total = sum(item["estimated_value"] for item in items)
         print("NEXORA // OPPORTUNITY ENGINE")
@@ -373,15 +376,15 @@ class OperatorShell:
             return 0
         self._closing = True
         print()
-        print(info("Shutdown requested."))
+        self._emit("info", "Shutdown requested.")
         if self.runtime.running:
-            print(info("Stopping managed Nexora server."))
+            self._emit("info", "Stopping managed Nexora server.")
             self.runtime.stop()
-            print(ok("Server stopped."))
+            self._emit("ok", "Server stopped.")
         elapsed = max(0, int(time.time() - self.stats.started_at))
         minutes, seconds = divmod(elapsed, 60)
-        print(ok("Database sessions closed."))
-        print(ok("Terminal state restored."))
+        self._emit("ok", "Database sessions closed.")
+        self._emit("ok", "Terminal state restored.")
         print()
         print("D3FAULTH // SESSION SUMMARY")
         print("  duration.... " + str(minutes).zfill(2) + ":" + str(seconds).zfill(2))
