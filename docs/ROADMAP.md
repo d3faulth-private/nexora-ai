@@ -1,64 +1,45 @@
 # Nexora AI Roadmap
 
-## v0.3 — validated integration foundation
+## v0.5 Pilot — current validation target
 
-- HVAC onboarding
-- six-agent workforce
-- human takeover
-- Google OAuth / Gmail / Calendar
-- HubSpot
-- signed webhook
-- encrypted connector secrets
-- background follow-up jobs
-- external intake API
-- approval engine
-- CI
+- HVAC-only commercial experience
+- DEMO/LIVE separation
+- business onboarding wizard
+- lead qualification and opportunity ranking
+- returning-customer history
+- human takeover / return to Nexora
+- multi-step follow-up with hard stop conditions
+- Gmail threaded replies
+- Google Calendar free/busy scheduling in business timezone
+- HubSpot lifecycle synchronization
+- connector connect/test/reconnect/disconnect UX
+- booked/completed/recovered revenue separation
+- D3FAULTH themed console with logs and health verification
+- CSRF, session expiry, login throttling, security headers and safe error pages
+- Alembic migration baseline
+- workspace-isolation and pilot regression tests
 
-## v0.4-commercial — first revenue-focused build
+## Pilot validation
 
-- D3FAULTH operator terminal
-- graceful terminal shutdown
-- `status`, `doctor`, `why`, `revenue`, and `opportunities`
-- managed local `serve` / `stop` / `restart`
-- booked revenue attribution
-- completed job revenue
-- recovered revenue attribution
-- proactive opportunity ranking
-- commercial dashboard metrics
-- cleaned `app/api/` and `app/connectors/` packages
-- commercial workflow tests
-
-## Next before first paid pilot
-
-- Google free/busy slot selection
-- Gmail reply threading
-- production-safe queue worker
-- customer consent / opt-out state
-- better connector health and reconnect UX
-- real deployment environment
-- pilot onboarding checklist
-- result/ROI reporting suitable for sales calls
+Measure:
+1. time to first response,
+2. qualified-to-booked conversion,
+3. recovered opportunities,
+4. completed revenue attributable to workflows,
+5. owner time saved,
+6. willingness to pay and retain.
 
 ## After revenue proof
 
-### Customer dependence
-- SMS
-- voice receptionist
-- advanced technician scheduling
-- customer memory
-- deeper knowledge retrieval
-- opportunity alerts
+Based on customer response:
+- Nexora Radar market/opportunity intelligence,
+- SMS,
+- voice receptionist,
+- advanced route/capacity scheduling,
+- richer customer memory/knowledge retrieval,
+- durable queue/worker,
+- MFA and expanded RBAC,
+- additional service industries,
+- agency/white-label and subscription billing.
 
-### Intelligence
-- stronger Manager planning
-- model routing by cost/quality/privacy
-- proactive diagnostics
-- verified external-agent/service delegation
-
-### Scale
-- plumbing / roofing / electrical templates
-- multi-user RBAC
-- agency and white-label accounts
-- subscriptions and usage billing
-- deployment automation
-- enterprise security/observability
+Nexora Radar is intentionally not part of v0.5.
