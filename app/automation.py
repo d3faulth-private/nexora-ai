@@ -9,7 +9,7 @@ from sqlalchemy import select
 from .agents import followup_message
 from .config import get_settings
 from .db import SessionLocal
-from .integrations import gmail_send, hubspot_upsert_contact, signed_webhook
+from .connectors.providers import gmail_send, hubspot_upsert_contact, signed_webhook
 from .models import (
     Appointment,
     AutomationJob,
