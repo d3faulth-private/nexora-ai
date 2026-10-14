@@ -180,6 +180,17 @@ def _seed_live(db: Session) -> Workspace:
     settings = get_settings()
     workspace = db.scalar(select(Workspace).order_by(Workspace.id))
     if workspace:
+        demo_user = db.scalar(
+            select(User).where(
+                User.workspace_id == workspace.id,
+                User.email == settings.demo_email,
+            )
+        )
+        if workspace.name == "Nexora HVAC Demo" or demo_user:
+            raise RuntimeError(
+                "LIVE mode cannot reuse a demo-seeded database. "
+                "Configure a clean DATABASE_URL or migrate real business data explicitly."
+            )
         ensure_defaults(db, workspace, False)
         return workspace
 
