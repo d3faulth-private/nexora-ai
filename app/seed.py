@@ -1,8 +1,13 @@
+from __future__ import annotations
+
+import json
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .config import get_settings
-from .models import Agent, Connector, KnowledgeEntry, Lead, User, Workspace
+from .hvac import default_hvac_profile
+from .models import Agent, Connector, KnowledgeEntry, Lead, User, Workspace, WorkspaceProfile
 from .security import hash_password
 
 
@@ -16,17 +21,57 @@ AGENTS = [
 ]
 
 CONNECTORS = [
-    ("email", "Email", "mock"),
-    ("calendar", "Calendar", "mock"),
-    ("crm", "CRM", "mock"),
-    ("webhook", "Webhook", "mock"),
+    ("google", "Google Gmail & Calendar", "mock"),
+    ("hubspot", "HubSpot CRM", "mock"),
+    ("webhook", "Outbound Webhook", "mock"),
 ]
+
+
+def ensure_v03_defaults(db: Session, workspace: Workspace) -> None:
+    profile = db.scalar(
+        select(WorkspaceProfile).where(WorkspaceProfile.workspace_id == workspace.id)
+    )
+    if not profile:
+        defaults = default_hvac_profile()
+        db.add(
+            WorkspaceProfile(
+                workspace_id=workspace.id,
+                services_json=json.dumps(defaults["services"]),
+                service_area=defaults["service_area"],
+                business_hours=defaults["business_hours"],
+                emergency_policy=defaults["emergency_policy"],
+                booking_duration_minutes=defaults["booking_duration_minutes"],
+                followup_after_minutes=defaults["followup_after_minutes"],
+                followup_max_attempts=defaults["followup_max_attempts"],
+                onboarding_completed=False,
+            )
+        )
+
+    for slug, name, mode in CONNECTORS:
+        exists = db.scalar(
+            select(Connector).where(
+                Connector.workspace_id == workspace.id,
+                Connector.slug == slug,
+            )
+        )
+        if not exists:
+            db.add(
+                Connector(
+                    workspace_id=workspace.id,
+                    slug=slug,
+                    name=name,
+                    status="disconnected",
+                    mode=mode,
+                )
+            )
+    db.commit()
 
 
 def seed_demo(db: Session) -> Workspace:
     settings = get_settings()
     workspace = db.scalar(select(Workspace).where(Workspace.name == "Nexora HVAC Demo"))
     if workspace:
+        ensure_v03_defaults(db, workspace)
         return workspace
 
     workspace = Workspace(
@@ -64,17 +109,6 @@ def seed_demo(db: Session) -> Workspace:
                 role=role,
                 enabled=True,
                 autonomy_level="guarded",
-            )
-        )
-
-    for slug, name, mode in CONNECTORS:
-        db.add(
-            Connector(
-                workspace_id=workspace.id,
-                slug=slug,
-                name=name,
-                status="connected",
-                mode=mode,
             )
         )
 
@@ -131,4 +165,5 @@ def seed_demo(db: Session) -> Workspace:
 
     db.commit()
     db.refresh(workspace)
+    ensure_v03_defaults(db, workspace)
     return workspace
