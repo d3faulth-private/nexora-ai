@@ -148,3 +148,18 @@ dialog::backdrop{background:#02070bc9}
 .wide-form{width:min(850px,92vw)}
 @media(max-width:900px){.profile-card{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.profile-card{grid-template-columns:1fr}}
+
+
+.opportunity-item{
+  display:grid;
+  grid-template-columns:minmax(180px,1.2fr) 140px minmax(220px,2fr) auto;
+  gap:14px;
+  align-items:center;
+  padding:14px 16px;
+  border-bottom:1px solid var(--line)
+}
+.opportunity-item:last-child{border-bottom:0}
+.opportunity-value{font-size:18px;font-weight:800}
+@media(max-width:850px){
+  .opportunity-item{grid-template-columns:1fr}
+}
