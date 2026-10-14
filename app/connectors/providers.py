@@ -196,6 +196,7 @@ def gmail_send(
     to: str,
     subject: str,
     body: str,
+    thread_id: str | None = None,
 ) -> IntegrationResult:
     item = connector(db, workspace_id, "google")
     if item and item.mode == "mock" and item.status == "connected":
@@ -217,7 +218,7 @@ def gmail_send(
     response = httpx.post(
         "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
         headers={"Authorization": "Bearer " + token},
-        json={"raw": raw},
+        json={"raw": raw, **({"threadId": thread_id} if thread_id else {})},
         timeout=20,
     )
     response.raise_for_status()
@@ -512,3 +513,159 @@ def signed_webhook(
         external_id=response.headers.get("X-Request-Id"),
         detail="Webhook delivered.",
     )
+
+
+
+def google_calendar_freebusy(
+    db: Session,
+    workspace_id: int,
+    time_min: datetime,
+    time_max: datetime,
+) -> list[tuple[datetime, datetime]]:
+    item = connector(db, workspace_id, "google")
+    if item and item.mode == "mock" and item.status == "connected":
+        return []
+
+    token = _google_token(db, workspace_id)
+    response = httpx.post(
+        "https://www.googleapis.com/calendar/v3/freeBusy",
+        headers={"Authorization": "Bearer " + token},
+        json={
+            "timeMin": time_min.astimezone(timezone.utc).isoformat(),
+            "timeMax": time_max.astimezone(timezone.utc).isoformat(),
+            "items": [{"id": "primary"}],
+        },
+        timeout=20,
+    )
+    response.raise_for_status()
+    busy = (
+        response.json()
+        .get("calendars", {})
+        .get("primary", {})
+        .get("busy", [])
+    )
+    output: list[tuple[datetime, datetime]] = []
+    for item in busy:
+        start = datetime.fromisoformat(str(item["start"]).replace("Z", "+00:00"))
+        end = datetime.fromisoformat(str(item["end"]).replace("Z", "+00:00"))
+        output.append((start, end))
+    return output
+
+
+def google_available_slots(
+    db: Session,
+    workspace_id: int,
+    desired_start: datetime,
+    duration_minutes: int,
+    count: int = 3,
+) -> list[datetime]:
+    if desired_start.tzinfo is None:
+        desired_start = desired_start.replace(tzinfo=timezone.utc)
+
+    item = connector(db, workspace_id, "google")
+    if not item or item.status != "connected":
+        return []
+    if item.mode == "mock":
+        return [desired_start + timedelta(minutes=30 * index) for index in range(count)]
+
+    window_end = desired_start + timedelta(days=3)
+    busy = google_calendar_freebusy(db, workspace_id, desired_start, window_end)
+    duration = timedelta(minutes=duration_minutes)
+    slots: list[datetime] = []
+    cursor = desired_start
+
+    minute = 30 if cursor.minute < 30 else 0
+    hour_add = 0 if cursor.minute < 30 else 1
+    cursor = cursor.replace(minute=minute, second=0, microsecond=0) + timedelta(hours=hour_add)
+
+    while cursor + duration <= window_end and len(slots) < count:
+        local_hour = cursor.hour
+        if 8 <= local_hour < 18:
+            end = cursor + duration
+            conflict = any(cursor < busy_end and end > busy_start for busy_start, busy_end in busy)
+            if not conflict:
+                slots.append(cursor)
+        cursor += timedelta(minutes=30)
+    return slots
+
+
+def gmail_thread_for_email(db: Session, workspace_id: int, email: str) -> str | None:
+    rows = list(
+        db.scalars(
+            select(ExternalEvent)
+            .where(
+                ExternalEvent.workspace_id == workspace_id,
+                ExternalEvent.provider == "gmail",
+                ExternalEvent.event_type == "inbound_email",
+            )
+            .order_by(ExternalEvent.id.desc())
+            .limit(100)
+        )
+    )
+    target = email.strip().lower()
+    for row in rows:
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        sender = str(payload.get("reply_to") or payload.get("from") or "").lower()
+        if target and target in sender and payload.get("thread_id"):
+            return str(payload["thread_id"])
+    return None
+
+
+def test_connector(db: Session, workspace_id: int, slug: str) -> IntegrationResult:
+    item = connector(db, workspace_id, slug)
+    if not item:
+        raise RuntimeError("Unknown connector.")
+    if item.mode == "mock":
+        return IntegrationResult(True, "mock_" + slug, "health_check", detail="Mock connector healthy.")
+
+    if slug == "google":
+        token = _google_token(db, workspace_id)
+        response = httpx.get(
+            "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+            headers={"Authorization": "Bearer " + token},
+            timeout=20,
+        )
+        response.raise_for_status()
+        return IntegrationResult(True, "google", "health_check", detail="Google API reachable.")
+
+    if slug == "hubspot":
+        secret = get_secret(db, workspace_id, "hubspot")
+        token = secret.get("private_app_token") or get_settings().hubspot_private_app_token
+        if not token:
+            raise RuntimeError("HubSpot is not configured.")
+        response = httpx.get(
+            "https://api.hubapi.com/crm/v3/objects/contacts",
+            headers={"Authorization": "Bearer " + str(token)},
+            params={"limit": 1},
+            timeout=20,
+        )
+        response.raise_for_status()
+        return IntegrationResult(True, "hubspot", "health_check", detail="HubSpot API reachable.")
+
+    if slug == "webhook":
+        result = signed_webhook(
+            db,
+            workspace_id,
+            "connector.health_check",
+            {"status": "ok"},
+        )
+        result.action = "health_check"
+        return result
+
+    raise RuntimeError("Unsupported connector.")
+
+
+def disconnect_connector(db: Session, workspace_id: int, slug: str) -> None:
+    row = _secret_row(db, workspace_id, slug)
+    if row:
+        db.delete(row)
+    item = connector(db, workspace_id, slug)
+    if item:
+        item.status = "disconnected"
+        item.mode = "real"
+        item.config_json = "{}"
+        item.last_sync_at = datetime.now(timezone.utc)
+    db.commit()
