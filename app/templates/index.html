@@ -12,12 +12,12 @@
       <div class="brand-mark">N</div>
       <div>
         <strong>NEXORA AI</strong>
-        <span>AI Workforce OS</span>
+        <span>AI Workforce OS · v0.3</span>
       </div>
     </div>
 
     <nav>
-      <button class="nav active" data-scroll="overview">Overview</button>
+      <button class="nav active" data-scroll="overview">Overview</button>\n      <button class="nav" data-scroll="onboarding">Business Profile</button>
       <button class="nav" data-scroll="agents">AI Workforce</button>
       <button class="nav" data-scroll="leads">Leads</button>
       <button class="nav" data-scroll="approvals">Approvals</button>
@@ -64,6 +64,14 @@
     </section>
 
     <section class="metrics" id="metrics"></section>
+
+    <section id="onboarding">
+      <div class="section-head">
+        <div><div class="eyebrow">HVAC OPERATING PROFILE</div><h2>Business setup</h2></div>
+        <button id="configureBusiness" class="ghost">Configure business</button>
+      </div>
+      <div class="profile-card" id="profileCard"></div>
+    </section>
 
     <section id="agents">
       <div class="section-head">
@@ -118,7 +126,7 @@
           <div class="eyebrow">INTEGRATIONS</div>
           <h2>Connectors</h2>
         </div>
-        <span class="hint">MVP connectors run in safe mock mode</span>
+        <button id="runAutomations" class="ghost">Run due automations</button>
       </div>
       <div id="connectorGrid" class="connector-grid"></div>
     </section>
@@ -139,11 +147,11 @@
       <button class="close" type="button" data-close="leadDialog">×</button>
       <div class="eyebrow">LEAD CONVERSATION</div>
       <h2 id="dialogTitle"></h2>
-      <div id="leadSummary" class="lead-summary"></div>
+      <div id="leadSummary" class="lead-summary"></div>\n      <div class="lead-actions"><button type="button" id="takeoverBtn" class="ghost"></button><button type="button" id="bookBtn" class="ghost hidden">Confirm appointment</button></div>
       <div id="conversation" class="conversation"></div>
       <div class="message-compose">
         <textarea id="messageBody" placeholder="Enter a customer message..."></textarea>
-        <button type="button" id="sendMessage">Send to Nexora</button>
+        <button type="button" id="sendMessage">Send</button>
       </div>
     </div>
   </dialog>
@@ -162,6 +170,52 @@
         <textarea name="issue" placeholder="Issue / request"></textarea>
       </div>
       <button>Create lead</button>
+    </form>
+  </dialog>
+
+  <dialog id="onboardingDialog">
+    <form id="onboardingForm" class="dialog-card wide-form">
+      <button type="button" class="close" data-close="onboardingDialog">×</button>
+      <div class="eyebrow">HVAC ONBOARDING</div>
+      <h2>Configure this business</h2>
+      <div class="form-grid">
+        <input name="business_name" placeholder="Business name" required>
+        <input name="industry" value="HVAC" placeholder="Industry">
+        <input name="timezone" value="America/New_York" placeholder="Timezone">
+        <input name="phone" placeholder="Business phone">
+        <input name="email" placeholder="Business email">
+        <input name="website" placeholder="Website">
+        <textarea name="services" placeholder="Services, one per line"></textarea>
+        <textarea name="service_area" placeholder="Service area / ZIP codes"></textarea>
+        <textarea name="business_hours" placeholder="Business hours"></textarea>
+        <textarea name="emergency_policy" placeholder="Emergency handling policy"></textarea>
+        <input name="booking_duration_minutes" type="number" min="15" value="60" placeholder="Appointment duration">
+        <input name="followup_after_minutes" type="number" min="15" value="120" placeholder="Follow-up delay">
+        <input name="followup_max_attempts" type="number" min="0" max="10" value="3" placeholder="Max follow-ups">
+      </div>
+      <button>Save HVAC profile</button>
+    </form>
+  </dialog>
+
+  <dialog id="hubspotDialog">
+    <form id="hubspotForm" class="dialog-card">
+      <button type="button" class="close" data-close="hubspotDialog">×</button>
+      <div class="eyebrow">HUBSPOT</div>
+      <h2>Connect CRM</h2>
+      <p class="muted">The credential is encrypted before storage.</p>
+      <input name="token" type="password" placeholder="HubSpot credential" required>
+      <button>Connect HubSpot</button>
+    </form>
+  </dialog>
+
+  <dialog id="webhookDialog">
+    <form id="webhookForm" class="dialog-card">
+      <button type="button" class="close" data-close="webhookDialog">×</button>
+      <div class="eyebrow">WEBHOOK</div>
+      <h2>Connect endpoint</h2>
+      <input name="url" placeholder="https://example.com/webhook" required>
+      <input name="secret" type="password" placeholder="Signing secret">
+      <button>Connect webhook</button>
     </form>
   </dialog>
 
