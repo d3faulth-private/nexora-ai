@@ -10,6 +10,9 @@ def login(client: TestClient):
         follow_redirects=False,
     )
     assert response.status_code == 303
+    me = client.get("/api/me")
+    assert me.status_code == 200
+    client.headers.update({"X-Nexora-CSRF": me.json()["csrf_token"]})
 
 
 def create_lead(client: TestClient, name: str):
@@ -35,7 +38,9 @@ def test_health_and_auth_boundary():
         assert health.status_code == 200
         assert health.json()["status"] == "ok"
         assert health.json()["app"] == "Nexora AI"
-        assert health.json()["version"] == "0.4.0"
+        assert health.json()["version"] == "0.5.0"
+        assert health.json()["mode"] == "demo"
+        assert health.json()["database"] == "ok"
 
         protected = client.get("/api/dashboard")
         assert protected.status_code == 401
@@ -346,3 +351,148 @@ def test_server_runtime_health_start_with_fake_process(monkeypatch):
     assert runtime.health() == "HEALTHY"
     assert runtime.pid == 4242
     assert runtime.stop() is True
+
+
+
+def test_csrf_protects_authenticated_writes():
+    with TestClient(app) as client:
+        response = client.post(
+            "/login",
+            data={"email": "admin@nexora.local", "password": "nexora-demo"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        blocked = client.post(
+            "/api/leads",
+            json={"name": "CSRF Proof", "estimated_value": 100},
+        )
+        assert blocked.status_code == 403
+
+
+def test_takeover_cancels_followup_and_return_can_resume():
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import AutomationJob
+
+    with TestClient(app) as client:
+        login(client)
+        lead_id = create_lead(client, "Pause Followup")
+        sent = client.post(
+            "/api/leads/" + str(lead_id) + "/message",
+            json={"body": "My AC stopped and I need someone tomorrow.", "channel": "web"},
+        )
+        assert sent.status_code == 200
+
+        takeover = client.post("/api/leads/" + str(lead_id) + "/takeover")
+        assert takeover.status_code == 200
+        with SessionLocal() as db:
+            pending = list(
+                db.scalars(
+                    select(AutomationJob).where(
+                        AutomationJob.lead_id == lead_id,
+                        AutomationJob.status == "pending",
+                    )
+                )
+            )
+            assert pending == []
+
+        returned = client.post("/api/leads/" + str(lead_id) + "/return-to-ai")
+        assert returned.status_code == 200
+        with SessionLocal() as db:
+            pending = list(
+                db.scalars(
+                    select(AutomationJob).where(
+                        AutomationJob.lead_id == lead_id,
+                        AutomationJob.status == "pending",
+                    )
+                )
+            )
+            assert len(pending) == 1
+
+
+def test_mock_google_availability_and_disconnect():
+    with TestClient(app) as client:
+        login(client)
+        enabled = client.post("/api/connectors/google/mock")
+        assert enabled.status_code == 200
+
+        availability = client.get("/api/availability")
+        assert availability.status_code == 200
+        data = availability.json()
+        assert data["calendar_connected"] is True
+        assert len(data["slots"]) == 3
+
+        disconnected = client.post("/api/connectors/google/disconnect")
+        assert disconnected.status_code == 200
+        assert disconnected.json()["status"] == "disconnected"
+
+
+def test_customer_history_matches_returning_customer():
+    with TestClient(app) as client:
+        login(client)
+        first = client.post(
+            "/api/leads",
+            json={
+                "name": "Returning Customer",
+                "email": "returning@example.com",
+                "issue": "Previous furnace visit",
+                "estimated_value": 300,
+            },
+        )
+        assert first.status_code == 200
+        second = client.post(
+            "/api/leads",
+            json={
+                "name": "Returning Customer",
+                "email": "returning@example.com",
+                "issue": "New AC request",
+                "estimated_value": 900,
+            },
+        )
+        assert second.status_code == 200
+        history = client.get("/api/customers/" + str(second.json()["id"]) + "/history")
+        assert history.status_code == 200
+        assert len(history.json()["previous_requests"]) >= 1
+
+
+def test_pilot_ui_has_no_inline_event_handlers_or_browser_prompts():
+    from pathlib import Path
+
+    html = Path("app/templates/index.html").read_text(encoding="utf-8")
+    js = Path("app/static/app.js").read_text(encoding="utf-8")
+    assert "onclick=" not in html
+    assert "onchange=" not in html
+    assert "alert(" not in js
+    assert "window.prompt(" not in js
+    assert 'meta name="csrf-token"' in html
+
+
+def test_live_seed_creates_clean_workspace(monkeypatch):
+    from types import SimpleNamespace
+
+    from sqlalchemy import create_engine, func, select
+    from sqlalchemy.orm import Session
+
+    from app.db import Base
+    from app.models import Lead, Connector
+    import app.seed as seed_module
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    fake = SimpleNamespace(
+        demo_mode=False,
+        bootstrap_business_name="Pilot HVAC",
+        bootstrap_admin_email="owner@pilot.test",
+        bootstrap_admin_password="strong-password-123",
+        default_timezone="America/New_York",
+    )
+    monkeypatch.setattr(seed_module, "get_settings", lambda: fake)
+
+    with Session(engine) as db:
+        workspace = seed_module.seed_workspace(db)
+        assert workspace.name == "Pilot HVAC"
+        assert int(db.scalar(select(func.count(Lead.id))) or 0) == 0
+        modes = set(db.scalars(select(Connector.mode)))
+        assert modes == {"real"}
