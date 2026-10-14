@@ -411,6 +411,21 @@ def book_lead(lead_id: int, request: Request, db: Session = Depends(get_db)):
     except Exception:
         calendar_result = None
 
+    try:
+        hubspot_upsert_contact(
+            db,
+            workspace.id,
+            {
+                "name": lead.name,
+                "email": lead.email,
+                "phone": lead.phone,
+                "zip_code": lead.zip_code,
+                "stage": lead.stage,
+            },
+        )
+    except Exception:
+        pass
+
     db.commit()
     return {
         "ok": True,
