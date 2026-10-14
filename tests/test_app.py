@@ -244,7 +244,7 @@ def test_html_routes_render_and_static_assets():
         dashboard_page = client.get("/")
         assert dashboard_page.status_code == 200
         assert "NEXORA AI" in dashboard_page.text
-        assert "REVENUE RECOVERY" in dashboard_page.text
+        assert "WHAT NEEDS ATTENTION" in dashboard_page.text
 
         javascript = client.get("/static/app.js")
         stylesheet = client.get("/static/styles.css")
