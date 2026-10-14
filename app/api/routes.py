@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import secrets
 from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr
@@ -17,7 +16,6 @@ from ..connectors.providers import (
     connector,
     disconnect_connector,
     exchange_google_code,
-    get_secret,
     gmail_mark_read,
     gmail_pull_unread,
     gmail_send,
@@ -27,10 +25,9 @@ from ..connectors.providers import (
     hubspot_upsert_contact,
     mark_connector,
     set_secret,
-    signed_webhook,
     test_connector,
 )
-from ..models import Appointment, AutomationJob, Conversation, ExternalEvent, Lead, User
+from ..models import Appointment, AutomationJob, ExternalEvent, Lead, User
 from ..revenue import opportunity_list, record_booking_attribution, record_completed_revenue, revenue_summary
 from ..security import csrf_valid
 from ..schemas import (
