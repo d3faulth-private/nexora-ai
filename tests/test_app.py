@@ -277,3 +277,72 @@ def test_terminal_handles_multiline_command_input():
         "opportunities",
         "revenue",
     ]
+
+
+
+def test_native_prompt_theme_has_no_raw_ansi(monkeypatch):
+    from d3terminal.theme import prompt_tokens
+
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    dev = prompt_tokens("development")
+    rendered = "".join(fragment for _, fragment in dev)
+    assert rendered == "d3faulth@nexora [DEVE]:~$ "
+    assert "\x1b[" not in rendered
+
+    prod = prompt_tokens("production")
+    assert any(style == "class:d3.env.prod" and fragment == "PROD" for style, fragment in prod)
+
+
+def test_no_color_prompt_fallback(monkeypatch):
+    from d3terminal.theme import prompt_tokens
+
+    monkeypatch.setenv("NO_COLOR", "1")
+    prompt_value = prompt_tokens("test")
+    assert list(prompt_value) == [("", "d3faulth@nexora [TEST]:~$ ")]
+
+
+def test_server_log_redaction(tmp_path):
+    from d3terminal.runtime import ServerRuntime
+
+    runtime = ServerRuntime()
+    runtime.log_path = tmp_path / "server.log"
+    runtime.log_path.write_text(
+        "Authorization: Bearer super-secret-token\n"
+        "password=hunter2\n"
+        "normal log line\n",
+        encoding="utf-8",
+    )
+    output = runtime.logs_tail(10)
+    assert "super-secret-token" not in output
+    assert "hunter2" not in output
+    assert "[REDACTED]" in output
+    assert "normal log line" in output
+
+
+def test_server_runtime_health_start_with_fake_process(monkeypatch):
+    from d3terminal.runtime import ServerRuntime
+
+    class FakeProcess:
+        pid = 4242
+        returncode = None
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            self.returncode = 0
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+        def kill(self):
+            self.returncode = -9
+
+    runtime = ServerRuntime()
+    monkeypatch.setattr("d3terminal.runtime.subprocess.Popen", lambda *args, **kwargs: FakeProcess())
+    monkeypatch.setattr(runtime, "_health_ok", lambda: True)
+
+    assert runtime.start(port=8123, health_timeout=0.5) is True
+    assert runtime.health() == "HEALTHY"
+    assert runtime.pid == 4242
+    assert runtime.stop() is True
