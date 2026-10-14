@@ -3,6 +3,12 @@ let activeLead = null;
 let activeLeadData = null;
 
 const el = (selector) => document.querySelector(selector);
+const esc = (value) => String(value == null ? "" : value)
+  .replaceAll("&", "&amp;")
+  .replaceAll("<", "&lt;")
+  .replaceAll(">", "&gt;")
+  .replaceAll('"', "&quot;")
+  .replaceAll("'", "&#039;");
 const money = (value) => new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -38,11 +44,24 @@ function renderMetrics() {
   const m = state.metrics;
   el("#metrics").innerHTML =
     metric("Leads", m.leads) +
-    metric("Qualified", m.qualified) +
-    metric("Appointments", m.appointments) +
-    metric("Pipeline", money(m.pipeline)) +
-    metric("Automations", m.pending_automations || 0) +
+    metric("Booked pipeline", money(m.booked_pipeline)) +
+    metric("Completed revenue", money(m.completed_revenue)) +
+    metric("Recovered revenue", money(m.recovered_revenue)) +
+    metric("Open opportunity", money(m.open_opportunity)) +
     metric("Approvals", m.pending_approvals);
+}
+
+function renderOpportunities() {
+  const items = state.opportunities || [];
+  el("#opportunityList").innerHTML = items.length ? items.map(function(item) {
+    return '<div class="opportunity-item">' +
+      '<div><strong>#' + item.lead_id + ' ' + esc(item.name) + '</strong><br>' +
+      '<span class="muted">' + esc(item.stage) + ' · idle ' + item.hours_idle + 'h</span></div>' +
+      '<div class="opportunity-value">' + money(item.estimated_value) + '</div>' +
+      '<div>' + esc(item.recommended_action) + '</div>' +
+      '<button class="view" onclick="openLead(' + item.lead_id + ')">Work lead</button>' +
+      '</div>';
+  }).join("") : '<div class="activity-item"><div class="activity-agent">CLEAR</div><div>No open revenue opportunities.</div></div>';
 }
 
 function renderProfile() {
@@ -81,8 +100,8 @@ function renderAgents() {
 function renderLeads() {
   el("#leadRows").innerHTML = state.leads.map(function(lead) {
     return '<tr>' +
-      '<td><strong>' + lead.name + '</strong><br><small>' + lead.source + '</small></td>' +
-      '<td>' + (lead.issue || "—") + '</td>' +
+      '<td><strong>' + esc(lead.name) + '</strong><br><small>' + lead.source + '</small></td>' +
+      '<td>' + esc(lead.issue || "—") + '</td>' +
       '<td><span class="stage">' + lead.stage + '</span></td>' +
       '<td><span class="control ' + (lead.human_control ? "human" : "ai") + '">' + (lead.human_control ? "HUMAN" : "AI") + '</span></td>' +
       '<td class="' + (lead.urgency === "urgent" ? "urgent" : "") + '">' + lead.urgency + '</td>' +
@@ -96,7 +115,7 @@ function renderApprovals() {
   el("#approvalList").innerHTML = state.approvals.length ? state.approvals.map(function(item) {
     return '<div class="approval-item">' +
       '<div class="approval-agent">' + item.agent_slug + '</div>' +
-      '<div><strong>' + item.action_type + '</strong><br><span class="muted">' + item.reason + '</span></div>' +
+      '<div><strong>' + item.action_type + '</strong><br><span class="muted">' + esc(item.reason) + '</span></div>' +
       '<div class="approval-actions">' +
       '<button class="approve" onclick="resolveApproval(' + item.id + ', \'approved\')">Approve</button>' +
       '<button class="reject" onclick="resolveApproval(' + item.id + ', \'rejected\')">Reject</button>' +
@@ -122,7 +141,7 @@ function renderConnectors() {
     .filter(function(item) { return ["google", "hubspot", "webhook"].includes(item.slug); })
     .map(function(item) {
       return '<div class="connector-card">' +
-        '<strong>' + item.name + '</strong>' +
+        '<strong>' + esc(item.name) + '</strong>' +
         '<span>' + item.mode + ' mode</span>' +
         '<span class="connector-status">● ' + item.status + '</span>' +
         '<div class="connector-actions">' + connectorAction(item) + '</div>' +
@@ -134,7 +153,7 @@ function renderActivity() {
   el("#activityList").innerHTML = state.activities.length ? state.activities.map(function(item) {
     return '<div class="activity-item">' +
       '<div class="activity-agent">' + item.agent_slug + '</div>' +
-      '<div>' + item.summary + '</div>' +
+      '<div>' + esc(item.summary) + '</div>' +
       '<div class="activity-time">' + timeText(item.created_at) + '</div>' +
       '</div>';
   }).join("") : '<div class="activity-item"><div></div><div>No activity yet.</div></div>';
@@ -144,6 +163,7 @@ function render() {
   el("#workspaceName").textContent = state.workspace.name;
   el("#workspaceMeta").textContent = state.workspace.industry + " · " + state.workspace.timezone;
   renderMetrics();
+  renderOpportunities();
   renderProfile();
   renderAgents();
   renderLeads();
@@ -182,7 +202,7 @@ window.openLead = async function(id) {
   const row = state.leads.find(function(item) { return item.id === id; });
   const human = !!(row && row.human_control);
 
-  el("#dialogTitle").textContent = lead.name + " · " + lead.stage;
+  el("#dialogTitle").textContent = esc(lead.name) + " · " + lead.stage;
   el("#leadSummary").innerHTML =
     '<span>' + (lead.phone || "No phone") + '</span>' +
     '<span>' + (lead.email || "No email") + '</span>' +
@@ -191,7 +211,7 @@ window.openLead = async function(id) {
   el("#conversation").innerHTML = lead.messages.length ? lead.messages.map(function(message) {
     return '<div class="bubble ' + message.direction + '">' +
       '<small>' + message.actor + ' · ' + timeText(message.created_at) + '</small>' +
-      message.body +
+      esc(message.body) +
       '</div>';
   }).join("") : '<div class="hint">No messages yet. Send a customer message to test the workforce.</div>';
 
@@ -202,6 +222,7 @@ window.openLead = async function(id) {
 
   const proposed = lead.appointments.find(function(item) { return item.status === "proposed"; });
   el("#bookBtn").classList.toggle("hidden", !proposed);
+  el("#completeJobBtn").classList.toggle("hidden", lead.stage !== "booked");
   el("#leadDialog").showModal();
 };
 
@@ -296,6 +317,23 @@ el("#takeoverBtn").addEventListener("click", async function() {
   const row = state.leads.find(function(item) { return item.id === activeLead; });
   const human = !!(row && row.human_control);
   await api("/api/leads/" + activeLead + (human ? "/return-to-ai" : "/takeover"), {method: "POST"});
+  await refresh();
+  await window.openLead(activeLead);
+});
+
+el("#completeJobBtn").addEventListener("click", async function() {
+  if (!activeLead || !activeLeadData) return;
+  const entered = window.prompt("Actual completed job revenue", String(activeLeadData.estimated_value || 0));
+  if (entered === null) return;
+  const actual = Number(entered);
+  if (!Number.isFinite(actual) || actual < 0) {
+    alert("Enter a valid revenue amount.");
+    return;
+  }
+  await api("/api/leads/" + activeLead + "/complete-job", {
+    method: "POST",
+    body: JSON.stringify({actual_amount: actual})
+  });
   await refresh();
   await window.openLead(activeLead);
 });
