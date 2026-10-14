@@ -169,6 +169,7 @@ def conversation_for_lead(
         .where(
             Conversation.workspace_id == workspace_id,
             Conversation.lead_id == lead_id,
+            Conversation.channel == channel,
             Conversation.status == "open",
         )
         .order_by(Conversation.id.desc())
@@ -185,6 +186,22 @@ def conversation_for_lead(
     db.add(conversation)
     db.flush()
     return conversation
+
+
+def latest_conversation_for_lead(
+    db: Session,
+    workspace_id: int,
+    lead_id: int,
+) -> Conversation | None:
+    return db.scalar(
+        select(Conversation)
+        .where(
+            Conversation.workspace_id == workspace_id,
+            Conversation.lead_id == lead_id,
+            Conversation.status == "open",
+        )
+        .order_by(Conversation.id.desc())
+    )
 
 
 def conversation_control(
@@ -488,6 +505,17 @@ def process_customer_message(
             )
 
     if decision.reply:
+        if channel == "email" and lead.email:
+            reply_context = gmail_reply_context_for_email(db, workspace.id, lead.email)
+            gmail_send(
+                db,
+                workspace.id,
+                lead.email,
+                "Re: Your service request",
+                decision.reply,
+                thread_id=reply_context.get("thread_id"),
+                in_reply_to=reply_context.get("in_reply_to"),
+            )
         db.add(
             Message(
                 conversation_id=conversation.id,
@@ -535,19 +563,13 @@ def add_human_message(
     lead: Lead,
     body: str,
 ):
-    conversation = conversation_for_lead(db, workspace.id, lead.id, "web")
+    conversation = latest_conversation_for_lead(db, workspace.id, lead.id)
+    if not conversation:
+        conversation = conversation_for_lead(db, workspace.id, lead.id, "web")
     control = conversation_control(db, workspace.id, conversation.id)
     if control.mode != "human":
         raise ValueError("Human takeover is not active.")
 
-    db.add(
-        Message(
-            conversation_id=conversation.id,
-            direction="outbound",
-            actor="human:" + user.name,
-            body=body,
-        )
-    )
     if conversation.channel == "email" and lead.email:
         try:
             reply_context = gmail_reply_context_for_email(db, workspace.id, lead.email)
@@ -560,8 +582,17 @@ def add_human_message(
                 thread_id=reply_context.get("thread_id"),
                 in_reply_to=reply_context.get("in_reply_to"),
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            raise ValueError("Gmail delivery failed. The human reply was not recorded.") from exc
+
+    db.add(
+        Message(
+            conversation_id=conversation.id,
+            direction="outbound",
+            actor="human:" + user.name,
+            body=body,
+        )
+    )
     lead.last_contacted_at = datetime.now(timezone.utc)
     activity(
         db,
@@ -648,7 +679,9 @@ def run_manager(db: Session, workspace: Workspace, objective: str) -> dict:
             if confirmed:
                 continue
 
-            conversation = conversation_for_lead(db, workspace.id, lead.id, "web")
+            conversation = latest_conversation_for_lead(db, workspace.id, lead.id)
+            if not conversation:
+                conversation = conversation_for_lead(db, workspace.id, lead.id, "web")
             control = conversation_control(db, workspace.id, conversation.id)
             if control.mode == "human":
                 continue
