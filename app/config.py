@@ -36,6 +36,7 @@ class Settings(BaseSettings):
 
     automation_enabled: bool = True
     automation_poll_seconds: int = 30
+    gmail_poll_seconds: int = 60
 
     session_max_age_seconds: int = 28800
     allowed_hosts: str = "127.0.0.1,localhost,testserver"
