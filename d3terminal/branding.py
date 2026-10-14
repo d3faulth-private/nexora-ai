@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import sys
 
+from .theme import prompt_tokens
+
 
 PROJECT = "NEXORA AI"
 PROJECT_SLUG = "nexora"
@@ -51,9 +53,8 @@ def banner(environment: str = "development") -> str:
     )
 
 
-def prompt(environment: str = "development") -> str:
-    env = environment[:4].upper()
-    return green("d3faulth") + "@" + PROJECT_SLUG + " [" + cyan(env) + "]:~$ "
+def prompt(environment: str = "development"):
+    return prompt_tokens(environment, PROJECT_SLUG)
 
 
 def ok(message: str) -> str:
