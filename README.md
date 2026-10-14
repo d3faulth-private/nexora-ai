@@ -2,7 +2,7 @@
 
 > **Your AI Workforce. Always On.**
 
-Nexora AI v0.5 Pilot is a revenue-first AI workforce for independent HVAC businesses. It captures and qualifies leads, follows up, checks Google Calendar availability, books appointments, keeps Gmail conversations threaded, updates HubSpot, supports human takeover, and separates pipeline from confirmed revenue.
+Nexora AI v0.5 Pilot is an always-on AI workforce for revenue and customer operations in independent HVAC businesses. It captures and qualifies leads, follows up, checks Google Calendar availability, books appointments, keeps Gmail conversations threaded, updates HubSpot, supports human takeover, and separates pipeline from confirmed revenue.
 
 ## Pilot workflow
 
@@ -83,3 +83,8 @@ Nexora never presents estimated pipeline as completed revenue. The dashboard sep
 v0.5 is HVAC-first. SMS, voice, WhatsApp, additional industries, marketplace/white-label features, subscription billing and Nexora Radar are outside this pilot branch.
 
 No open-source license has been granted. All rights are reserved.
+
+
+## Positioning boundary
+
+v0.5 is an AI workforce for revenue and customer operations. It is not marketed as an AI CEO, autonomous company manager, or replacement for company leadership. High-impact business decisions remain under human authority.
