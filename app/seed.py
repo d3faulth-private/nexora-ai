@@ -21,13 +21,13 @@ AGENTS = [
 ]
 
 CONNECTORS = [
-    ("google", "Google Gmail & Calendar", "mock"),
-    ("hubspot", "HubSpot CRM", "mock"),
-    ("webhook", "Outbound Webhook", "mock"),
+    ("google", "Google Gmail & Calendar"),
+    ("hubspot", "HubSpot CRM"),
+    ("webhook", "Outbound Webhook"),
 ]
 
 
-def ensure_v03_defaults(db: Session, workspace: Workspace) -> None:
+def ensure_defaults(db: Session, workspace: Workspace, demo_mode: bool) -> None:
     profile = db.scalar(
         select(WorkspaceProfile).where(WorkspaceProfile.workspace_id == workspace.id)
     )
@@ -36,10 +36,10 @@ def ensure_v03_defaults(db: Session, workspace: Workspace) -> None:
         db.add(
             WorkspaceProfile(
                 workspace_id=workspace.id,
-                services_json=json.dumps(defaults["services"]),
-                service_area=defaults["service_area"],
-                business_hours=defaults["business_hours"],
-                emergency_policy=defaults["emergency_policy"],
+                services_json=json.dumps(defaults["services"] if demo_mode else []),
+                service_area=defaults["service_area"] if demo_mode else "",
+                business_hours=defaults["business_hours"] if demo_mode else "",
+                emergency_policy=defaults["emergency_policy"] if demo_mode else "",
                 booking_duration_minutes=defaults["booking_duration_minutes"],
                 followup_after_minutes=defaults["followup_after_minutes"],
                 followup_max_attempts=defaults["followup_max_attempts"],
@@ -47,7 +47,7 @@ def ensure_v03_defaults(db: Session, workspace: Workspace) -> None:
             )
         )
 
-    for slug, name, mode in CONNECTORS:
+    for slug, name in CONNECTORS:
         exists = db.scalar(
             select(Connector).where(
                 Connector.workspace_id == workspace.id,
@@ -61,17 +61,36 @@ def ensure_v03_defaults(db: Session, workspace: Workspace) -> None:
                     slug=slug,
                     name=name,
                     status="disconnected",
-                    mode=mode,
+                    mode="mock" if demo_mode else "real",
+                )
+            )
+
+    for slug, name, role in AGENTS:
+        exists = db.scalar(
+            select(Agent).where(
+                Agent.workspace_id == workspace.id,
+                Agent.slug == slug,
+            )
+        )
+        if not exists:
+            db.add(
+                Agent(
+                    workspace_id=workspace.id,
+                    slug=slug,
+                    name=name,
+                    role=role,
+                    enabled=True,
+                    autonomy_level="guarded",
                 )
             )
     db.commit()
 
 
-def seed_demo(db: Session) -> Workspace:
+def _seed_demo(db: Session) -> Workspace:
     settings = get_settings()
     workspace = db.scalar(select(Workspace).where(Workspace.name == "Nexora HVAC Demo"))
     if workspace:
-        ensure_v03_defaults(db, workspace)
+        ensure_defaults(db, workspace, True)
         return workspace
 
     workspace = Workspace(
@@ -99,18 +118,6 @@ def seed_demo(db: Session) -> Workspace:
             role="owner",
         )
     )
-
-    for slug, name, role in AGENTS:
-        db.add(
-            Agent(
-                workspace_id=workspace.id,
-                slug=slug,
-                name=name,
-                role=role,
-                enabled=True,
-                autonomy_level="guarded",
-            )
-        )
 
     db.add_all([
         KnowledgeEntry(
@@ -165,5 +172,49 @@ def seed_demo(db: Session) -> Workspace:
 
     db.commit()
     db.refresh(workspace)
-    ensure_v03_defaults(db, workspace)
+    ensure_defaults(db, workspace, True)
     return workspace
+
+
+def _seed_live(db: Session) -> Workspace:
+    settings = get_settings()
+    workspace = db.scalar(select(Workspace).order_by(Workspace.id))
+    if workspace:
+        ensure_defaults(db, workspace, False)
+        return workspace
+
+    if not settings.bootstrap_admin_email or not settings.bootstrap_admin_password:
+        raise RuntimeError(
+            "Live mode requires BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD for the initial owner account."
+        )
+
+    workspace = Workspace(
+        name=settings.bootstrap_business_name,
+        industry="HVAC",
+        timezone=settings.default_timezone,
+        knowledge_summary="",
+    )
+    db.add(workspace)
+    db.flush()
+    db.add(
+        User(
+            workspace_id=workspace.id,
+            email=settings.bootstrap_admin_email.strip().lower(),
+            name="Owner",
+            password_hash=hash_password(settings.bootstrap_admin_password),
+            role="owner",
+        )
+    )
+    db.commit()
+    db.refresh(workspace)
+    ensure_defaults(db, workspace, False)
+    return workspace
+
+
+def seed_workspace(db: Session) -> Workspace:
+    return _seed_demo(db) if get_settings().demo_mode else _seed_live(db)
+
+
+def seed_demo(db: Session) -> Workspace:
+    # Backward-compatible alias for older scripts/terminal imports.
+    return seed_workspace(db)
