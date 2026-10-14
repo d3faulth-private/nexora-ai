@@ -69,3 +69,17 @@ Add:
 ## Reporting
 
 Until a dedicated security email or policy is added, do not publish real production secrets or customer data in GitHub issues.
+
+
+## v0.3 connector security
+
+Real connector secrets are stored in `connector_secrets` encrypted with a Fernet key derived from `CONNECTOR_ENCRYPTION_KEY`. The key itself must never be committed to the repository.
+
+Google OAuth state is stored in the signed user session and verified on callback. HubSpot credentials and outbound webhook signing secrets are encrypted before database storage.
+
+Before a public deployment:
+- move encryption keys to a managed secret/KMS system
+- add OAuth disconnect and token-revocation flows
+- add CSRF tokens to state-changing browser forms
+- make intake credentials unique per workspace
+- replace the in-process scheduler with a durable worker/queue
