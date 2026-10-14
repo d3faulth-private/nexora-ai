@@ -1,14 +1,15 @@
-"""Smoke test a locally running Nexora instance."""
+"""Smoke test a locally running Nexora demo instance."""
 
-from urllib.parse import urlencode
-from urllib.request import HTTPCookieProcessor, Request, build_opener
 import http.cookiejar
 import json
+from urllib.parse import urlencode
+from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 
 BASE = "http://127.0.0.1:8000"
 jar = http.cookiejar.CookieJar()
 client = build_opener(HTTPCookieProcessor(jar))
+csrf = ""
 
 
 def request(path, method="GET", data=None, content_type="application/json"):
@@ -20,6 +21,8 @@ def request(path, method="GET", data=None, content_type="application/json"):
         else:
             body = urlencode(data).encode()
         headers["Content-Type"] = content_type
+    if method not in {"GET", "HEAD"} and csrf:
+        headers["X-Nexora-CSRF"] = csrf
 
     req = Request(BASE + path, data=body, method=method, headers=headers)
     with client.open(req) as response:
@@ -35,9 +38,12 @@ request(
     {"email": "admin@nexora.local", "password": "nexora-demo"},
     "application/x-www-form-urlencoded",
 )
+me = request("/api/me")
+csrf = me["csrf_token"]
 
 dashboard = request("/api/dashboard")
 print("Workspace:", dashboard["workspace"]["name"])
+print("Mode:", dashboard["deployment"]["mode"])
 print("Metrics:", dashboard["metrics"])
 
 lead_id = dashboard["leads"][0]["id"]
