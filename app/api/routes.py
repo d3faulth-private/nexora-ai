@@ -26,9 +26,10 @@ from ..connectors.providers import (
     hubspot_upsert_contact,
     mark_connector,
     set_secret,
+    signed_webhook,
     test_connector,
 )
-from ..models import Appointment, Conversation, Lead, User
+from ..models import Appointment, AutomationJob, Conversation, Lead, User
 from ..revenue import opportunity_list, record_booking_attribution, record_completed_revenue, revenue_summary
 from ..security import csrf_valid
 from ..schemas import (
@@ -383,6 +384,16 @@ def book_lead(lead_id: int, request: Request, db: Session = Depends(get_db)):
     appointment.status = "confirmed"
     lead.stage = "booked"
     record_booking_attribution(db, workspace.id, lead, source="ai_booking")
+
+    for job in db.scalars(
+        select(AutomationJob).where(
+            AutomationJob.workspace_id == workspace.id,
+            AutomationJob.lead_id == lead.id,
+            AutomationJob.status == "pending",
+        )
+    ):
+        job.status = "cancelled"
+        job.last_error = "Lead booked."
 
     profile = get_profile(db, workspace.id)
     duration = profile.booking_duration_minutes if profile else 60
