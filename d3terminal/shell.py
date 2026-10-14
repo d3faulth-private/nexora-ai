@@ -5,6 +5,10 @@ import shlex
 import time
 import webbrowser
 from dataclasses import dataclass, field
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.history import InMemoryHistory
 from datetime import datetime, timezone
 
 from app.config import get_settings
@@ -60,6 +64,17 @@ class OperatorShell:
         self.runtime = ServerRuntime()
         self.stats = SessionStats()
         self._closing = False
+        self._history = InMemoryHistory()
+        self._completer = WordCompleter(
+            [
+                "status", "doctor", "revenue", "opportunities", "leads", "agents",
+                "jobs", "connectors", "why", "serve", "stop", "restart", "open",
+                "history", "version", "clear", "help", "exit", "quit", "q",
+            ],
+            ignore_case=True,
+            sentence=True,
+        )
+        self._session = PromptSession(history=self._history, completer=self._completer)
 
     def initialize(self) -> None:
         Base.metadata.create_all(bind=engine)
@@ -72,7 +87,7 @@ class OperatorShell:
         print(info("Type 'help' for commands. Ctrl+C cancels input; 'exit' performs graceful shutdown."))
         while not self._closing:
             try:
-                raw = input(prompt(self.settings.app_env)).strip()
+                raw = self._session.prompt(prompt(self.settings.app_env)).strip()
             except KeyboardInterrupt:
                 print()
                 self.stats.warnings += 1
@@ -85,19 +100,25 @@ class OperatorShell:
             if not raw:
                 continue
 
-            command = self._normalize(raw)
-            self._record(raw)
-            try:
-                if self.execute(command):
-                    return self.shutdown()
-            except KeyboardInterrupt:
-                self.stats.warnings += 1
-                print()
-                print(warn("Operation cancelled by operator."))
-            except Exception as exc:
-                self.stats.failures += 1
-                print(fail(str(exc)))
-                print(info("Run 'why last' or 'doctor' for diagnostics."))
+            commands = [line.strip() for line in raw.splitlines() if line.strip()]
+            if len(commands) > 1:
+                print(info(str(len(commands)) + " pasted commands detected; executing sequentially."))
+
+            for raw_command in commands:
+                command = self._normalize(raw_command)
+                self._record(raw_command)
+                try:
+                    if self.execute(command):
+                        return self.shutdown()
+                except KeyboardInterrupt:
+                    self.stats.warnings += 1
+                    print()
+                    print(warn("Operation cancelled by operator."))
+                    break
+                except Exception as exc:
+                    self.stats.failures += 1
+                    print(fail(str(exc)))
+                    print(info("Run 'why last' or 'doctor' for diagnostics."))
         return self.shutdown()
 
     def _normalize(self, raw: str) -> str:
@@ -202,14 +223,28 @@ class OperatorShell:
         print("  Agents........ " + str(data["agents_enabled"]) + "/" + str(data["agents_total"]) + " enabled")
         print("  Pending jobs.. " + str(data["pending_jobs"]))
         print("  Failed jobs... " + str(data["failed_jobs"]))
-        problems = [
-            item for item in data["connectors"] if item["status"] != "connected"
+        print("  System health. " + data["overall_health"])
+        print("  Integrations")
+        for item in data["connectors"]:
+            suffix = " (" + item["mode"] + ")" if item["health"] == "HEALTHY" else ""
+            print("    " + item["slug"].ljust(12) + item["health"] + suffix)
+
+        actionable = [
+            item for item in data["connectors"]
+            if item["health"] in {"DISCONNECTED", "DEGRADED", "FAILED"}
         ]
-        if data["database"] != "ok" or data["failed_jobs"]:
-            print(fail("Diagnostic requires attention."))
-        elif problems:
+        optional = [
+            item for item in data["connectors"]
+            if item["health"] == "NOT CONFIGURED"
+        ]
+
+        if data["overall_health"] == "FAILED":
+            print(fail("Core diagnostic failed."))
+        elif actionable:
             self.stats.warnings += 1
-            print(warn(str(len(problems)) + " connector(s) are not connected."))
+            print(warn(str(len(actionable)) + " configured integration(s) require attention."))
+        elif optional:
+            print(ok("Core system healthy. " + str(len(optional)) + " optional integration(s) are not configured."))
         else:
             print(ok("Core diagnostic is healthy."))
 
@@ -300,7 +335,7 @@ class OperatorShell:
             print(
                 item["slug"]
                 + " | "
-                + item["status"]
+                + item["health"]
                 + " | "
                 + item["mode"]
             )
