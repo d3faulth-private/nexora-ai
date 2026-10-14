@@ -662,3 +662,70 @@ def test_gmail_send_preserves_thread_headers(monkeypatch):
     message = message_from_bytes(base64.urlsafe_b64decode(raw))
     assert message["In-Reply-To"] == "<message-123@example.com>"
     assert message["References"] == "<message-123@example.com>"
+
+
+
+def test_connected_gmail_poller_handles_mock_workspace():
+    from app.inbox import sync_connected_gmail_once
+
+    with TestClient(app) as client:
+        login(client)
+        enabled = client.post("/api/connectors/google/mock")
+        assert enabled.status_code == 200
+
+        result = sync_connected_gmail_once(max_results=5)
+        assert result["failures"] == 0
+        assert result["workspaces"] >= 1
+        assert result["fetched"] == 0
+
+
+def test_followup_does_not_claim_delivery_without_google():
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from app.automation import run_due_jobs_once
+    from app.db import SessionLocal
+    from app.models import AutomationJob, Message
+
+    with TestClient(app) as client:
+        login(client)
+        client.post("/api/connectors/google/disconnect")
+
+        lead_id = create_lead(client, "No Delivery Channel")
+        response = client.post(
+            "/api/leads/" + str(lead_id) + "/message",
+            json={"body": "My AC stopped and I need help tomorrow.", "channel": "web"},
+        )
+        assert response.status_code == 200
+        conversation_id = response.json()["conversation_id"]
+
+        with SessionLocal() as db:
+            job = db.scalar(
+                select(AutomationJob).where(
+                    AutomationJob.lead_id == lead_id,
+                    AutomationJob.status == "pending",
+                )
+            )
+            assert job is not None
+            job.run_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+            db.commit()
+
+        run_due_jobs_once()
+
+        with SessionLocal() as db:
+            followup_messages = list(
+                db.scalars(
+                    select(Message).where(
+                        Message.conversation_id == conversation_id,
+                        Message.actor == "followup",
+                    )
+                )
+            )
+            assert followup_messages == []
+            job = db.scalar(
+                select(AutomationJob).where(AutomationJob.lead_id == lead_id)
+                .order_by(AutomationJob.id.desc())
+            )
+            assert job.status == "completed"
+            assert "Google email delivery is not connected" in (job.last_error or "")
