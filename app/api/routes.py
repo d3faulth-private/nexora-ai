@@ -18,6 +18,7 @@ from ..connectors.providers import (
     disconnect_connector,
     exchange_google_code,
     get_secret,
+    gmail_mark_read,
     gmail_pull_unread,
     gmail_send,
     google_authorization_url,
@@ -29,7 +30,7 @@ from ..connectors.providers import (
     signed_webhook,
     test_connector,
 )
-from ..models import Appointment, AutomationJob, Conversation, Lead, User
+from ..models import Appointment, AutomationJob, Conversation, ExternalEvent, Lead, User
 from ..revenue import opportunity_list, record_booking_attribution, record_completed_revenue, revenue_summary
 from ..security import csrf_valid
 from ..schemas import (
@@ -349,10 +350,26 @@ def gmail_sync(request: Request, db: Session = Depends(get_db)):
                         "Re: " + (incoming.get("subject") or "Your service request"),
                         decision.reply,
                         thread_id=str(incoming.get("thread_id") or "") or None,
+                        in_reply_to=str(incoming.get("message_id_header") or "") or None,
                     )
                 except Exception:
                     pass
             created.append(lead.id)
+
+        event = db.scalar(
+            select(ExternalEvent).where(
+                ExternalEvent.workspace_id == workspace.id,
+                ExternalEvent.provider == "gmail",
+                ExternalEvent.idempotency_key == str(incoming.get("id") or ""),
+            )
+        )
+        if event:
+            event.status = "processed"
+        try:
+            gmail_mark_read(db, workspace.id, str(incoming.get("id") or ""))
+        except Exception:
+            pass
+        db.commit()
 
     return {
         "fetched": len(messages),
