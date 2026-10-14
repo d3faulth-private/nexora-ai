@@ -84,6 +84,7 @@ def onboarding_state(request: Request, db: Session = Depends(get_db)):
             "phone": workspace.phone,
             "email": workspace.email,
             "website": workspace.website,
+            "knowledge_summary": workspace.knowledge_summary,
         },
         "profile": profile_dict(profile),
     }
