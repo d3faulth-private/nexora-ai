@@ -102,9 +102,9 @@ def login_page(request: Request):
     if request.session.get("user_id"):
         return RedirectResponse("/", status_code=303)
     return templates.TemplateResponse(
-        "login.html",
-        {
-            "request": request,
+        request=request,
+        name="login.html",
+        context={
             "app_name": settings.app_name,
             "demo_mode": settings.demo_mode,
             "demo_email": settings.demo_email,
@@ -124,9 +124,9 @@ def login(
     user = authenticate(db, email.strip().lower(), password)
     if not user:
         return templates.TemplateResponse(
-            "login.html",
-            {
-                "request": request,
+            request=request,
+            name="login.html",
+            context={
                 "app_name": settings.app_name,
                 "demo_mode": settings.demo_mode,
                 "demo_email": settings.demo_email,
@@ -154,9 +154,9 @@ def home(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=303)
     workspace = get_workspace(db, user.workspace_id)
     return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
+        request=request,
+        name="index.html",
+        context={
             "app_name": settings.app_name,
             "user": user,
             "workspace": workspace,
