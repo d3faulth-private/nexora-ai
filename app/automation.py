@@ -9,7 +9,7 @@ from sqlalchemy import select
 from .agents import followup_message
 from .config import get_settings
 from .db import SessionLocal
-from .connectors.providers import gmail_send, hubspot_upsert_contact, signed_webhook
+from .connectors.providers import gmail_send, gmail_thread_for_email, hubspot_upsert_contact, signed_webhook
 from .models import (
     Appointment,
     AutomationJob,
@@ -66,6 +66,7 @@ def schedule_followup_for_lead(db, workspace_id: int, lead_id: int, conversation
         run_at=utcnow() + timedelta(minutes=delay),
         lead_id=lead_id,
         conversation_id=conversation_id,
+        payload={"sequence_step": 1},
         max_attempts=max_attempts,
     )
 
@@ -102,7 +103,19 @@ def _run_followup(db, job: AutomationJob) -> str:
     if confirmed or lead.stage in {"booked", "completed", "lost"}:
         return "lead no longer needs follow-up"
 
+    try:
+        payload = json.loads(job.payload_json or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+    sequence_step = max(1, int(payload.get("sequence_step") or 1))
+
     body = followup_message(lead.name, lead.issue)
+    if sequence_step > 1:
+        body = (
+            "Hi " + lead.name + ", checking in again about "
+            + (lead.issue.strip() or "your service request")
+            + ". If you still need help, reply and we can help with the next available appointment."
+        )
     db.add(
         Message(
             conversation_id=conversation.id,
@@ -123,6 +136,7 @@ def _run_followup(db, job: AutomationJob) -> str:
                 lead.email,
                 "Following up on your service request",
                 body,
+                thread_id=gmail_thread_for_email(db, job.workspace_id, lead.email),
             )
         except Exception:
             pass
@@ -155,7 +169,27 @@ def _run_followup(db, job: AutomationJob) -> str:
     except Exception:
         pass
 
-    return "follow-up sent"
+    profile = db.scalar(
+        select(WorkspaceProfile).where(WorkspaceProfile.workspace_id == job.workspace_id)
+    )
+    max_sequence = profile.followup_max_attempts if profile else job.max_attempts
+    if sequence_step < max_sequence:
+        if sequence_step == 1:
+            next_delay = max(1440, (profile.followup_after_minutes if profile else 120))
+        else:
+            next_delay = 4320
+        schedule_job(
+            db,
+            workspace_id=job.workspace_id,
+            kind="lead_followup",
+            run_at=utcnow() + timedelta(minutes=next_delay),
+            lead_id=lead.id,
+            conversation_id=conversation.id,
+            payload={"sequence_step": sequence_step + 1},
+            max_attempts=max_sequence,
+        )
+
+    return "follow-up sequence step " + str(sequence_step) + " sent"
 
 
 def run_due_jobs_once() -> int:
