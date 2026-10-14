@@ -9,7 +9,7 @@ from sqlalchemy import select
 from .agents import followup_message
 from .config import get_settings
 from .db import SessionLocal
-from .connectors.providers import gmail_send, gmail_thread_for_email, hubspot_upsert_contact, signed_webhook
+from .connectors.providers import gmail_reply_context_for_email, gmail_send, hubspot_upsert_contact, signed_webhook
 from .models import (
     Appointment,
     AutomationJob,
@@ -130,13 +130,15 @@ def _run_followup(db, job: AutomationJob) -> str:
 
     if lead.email:
         try:
+            reply_context = gmail_reply_context_for_email(db, job.workspace_id, lead.email)
             gmail_send(
                 db,
                 job.workspace_id,
                 lead.email,
                 "Following up on your service request",
                 body,
-                thread_id=gmail_thread_for_email(db, job.workspace_id, lead.email),
+                thread_id=reply_context.get("thread_id"),
+                in_reply_to=reply_context.get("in_reply_to"),
             )
         except Exception:
             pass
