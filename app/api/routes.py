@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timedelta, timezone
-from email.utils import parseaddr
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -12,12 +11,11 @@ from sqlalchemy.orm import Session
 from ..automation import run_due_jobs_once
 from ..config import get_settings
 from ..db import get_db
+from ..inbox import sync_workspace_gmail
 from ..connectors.providers import (
     connector,
     disconnect_connector,
     exchange_google_code,
-    gmail_mark_read,
-    gmail_pull_unread,
     google_authorization_url,
     google_available_slots,
     google_calendar_create,
@@ -27,7 +25,7 @@ from ..connectors.providers import (
     signed_webhook,
     test_connector,
 )
-from ..models import Appointment, AutomationJob, Conversation, ExternalEvent, Lead, User
+from ..models import Appointment, AutomationJob, Conversation, Lead, User
 from ..revenue import opportunity_list, record_booking_attribution, record_completed_revenue, revenue_summary
 from ..security import csrf_valid
 from ..schemas import (
@@ -295,79 +293,13 @@ def connector_mock(slug: str, request: Request, db: Session = Depends(get_db)):
 @router.post("/api/connectors/gmail/sync")
 def gmail_sync(request: Request, db: Session = Depends(get_db)):
     _, workspace = context(request, db)
-
     try:
-        messages = gmail_pull_unread(db, workspace.id, max_results=20)
+        return sync_workspace_gmail(db, workspace, max_results=20)
     except Exception as exc:
-        raise HTTPException(502, "Gmail sync failed: " + str(exc)) from exc
-
-    created = []
-    for incoming in messages:
-        sender_name, sender_email = parseaddr(
-            incoming.get("reply_to") or incoming.get("from") or ""
-        )
-        sender_email = sender_email.strip().lower()
-
-        lead = None
-        if sender_email:
-            lead = db.scalar(
-                select(Lead).where(
-                    Lead.workspace_id == workspace.id,
-                    Lead.email == sender_email,
-                    Lead.stage.notin_(("lost", "completed")),
-                )
-            )
-
-        if not lead:
-            lead = Lead(
-                workspace_id=workspace.id,
-                name=sender_name or sender_email or "Email Lead",
-                email=sender_email or None,
-                source="gmail",
-                issue=incoming.get("subject") or "",
-                estimated_value=0,
-            )
-            db.add(lead)
-            db.flush()
-
-        body = (
-            (incoming.get("subject") or "")
-            + "\n\n"
-            + (incoming.get("body") or "")
-        ).strip()
-
-        if body:
-            try:
-                process_customer_message(
-                    db,
-                    workspace,
-                    lead,
-                    body,
-                    "email",
-                )
-            except Exception as exc:
-                raise HTTPException(502, "Gmail reply delivery failed; the message remains retryable.") from exc
-            created.append(lead.id)
-
-        event = db.scalar(
-            select(ExternalEvent).where(
-                ExternalEvent.workspace_id == workspace.id,
-                ExternalEvent.provider == "gmail",
-                ExternalEvent.idempotency_key == str(incoming.get("id") or ""),
-            )
-        )
-        if event:
-            event.status = "processed"
-        try:
-            gmail_mark_read(db, workspace.id, str(incoming.get("id") or ""))
-        except Exception:
-            pass
-        db.commit()
-
-    return {
-        "fetched": len(messages),
-        "processed_lead_ids": created,
-    }
+        raise HTTPException(
+            502,
+            "Gmail sync failed; unprocessed messages remain retryable.",
+        ) from exc
 
 
 @router.post("/api/leads/{lead_id}/book")
