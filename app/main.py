@@ -18,6 +18,7 @@ from .config import get_settings
 from .db import Base, SessionLocal, engine, get_db
 from .models import Agent, Approval, Appointment, Connector, Conversation, KnowledgeEntry, Lead, Message, Task, User
 from .schemas import AppointmentCreate, ConnectorUpdate, KnowledgeCreate, LeadCreate, LeadUpdate, ManagerCommand, MessageCreate
+from .revenue import record_booking_attribution
 from .seed import seed_demo
 from .v03_routes import router as v03_router
 from .services import (
@@ -47,7 +48,7 @@ async def lifespan(app: FastAPI):
         stop_scheduler()
 
 
-app = FastAPI(title=settings.app_name, version="0.3.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="0.4.0", lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.app_secret,
@@ -91,7 +92,7 @@ def health():
     return {
         "status": "ok",
         "app": settings.app_name,
-        "version": "0.3.0",
+        "version": "0.4.0",
         "ai_provider": settings.ai_provider,
     }
 
@@ -401,6 +402,8 @@ def create_appointment(payload: AppointmentCreate, request: Request, db: Session
     )
     lead.stage = "booked"
     db.add(appointment)
+    db.flush()
+    record_booking_attribution(db, workspace.id, lead, source="manual_appointment")
     activity(
         db,
         workspace.id,
