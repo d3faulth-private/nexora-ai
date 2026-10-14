@@ -57,7 +57,7 @@ Useful commands: `status`, `doctor`, `revenue`, `opportunities`, `leads`, `agent
 
 ## Integrations
 
-Google OAuth provides Gmail + Calendar. Nexora can ingest unread email, reply in the same Gmail thread, check Calendar free/busy in the business timezone, propose service windows, and create confirmed Calendar events.
+Google OAuth provides Gmail + Calendar. Connected Gmail workspaces are polled automatically (default every 60 seconds), while the manual Sync button uses the same intake path. Nexora can ingest unread email, reply in the same Gmail thread, check Calendar free/busy in the business timezone, propose service windows, and create confirmed Calendar events.
 
 HubSpot private app credentials and webhook credentials are encrypted before storage. Lead progress maps to HubSpot lifecycle stages where applicable. Outbound webhooks are HMAC-signed.
 
