@@ -2,7 +2,7 @@ name: Nexora CI
 
 on:
   push:
-    branches: [main, v0.3, v0.4-commercial]
+    branches: [main, v0.3, v0.4-commercial, v0.4-repair-abcd]
   pull_request:
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
       - name: Test
         env:
           AUTOMATION_ENABLED: "false"
-        run: pytest
+        run: python -m pytest
 
       - name: Compile check
         run: python -m compileall -q app d3terminal
