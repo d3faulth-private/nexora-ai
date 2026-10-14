@@ -20,7 +20,7 @@ from .models import Agent, Approval, Appointment, Connector, Conversation, Knowl
 from .schemas import AppointmentCreate, ConnectorUpdate, KnowledgeCreate, LeadCreate, LeadUpdate, ManagerCommand, MessageCreate
 from .revenue import record_booking_attribution
 from .seed import seed_demo
-from .v03_routes import router as v03_router
+from .api.routes import router as api_router
 from .services import (
     activity,
     authenticate,
@@ -56,7 +56,7 @@ app.add_middleware(
     https_only=settings.app_env == "production",
 )
 
-app.include_router(v03_router)
+app.include_router(api_router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
