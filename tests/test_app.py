@@ -77,6 +77,7 @@ def test_hvac_onboarding():
                 "service_area": "10001-10020",
                 "business_hours": "Mon-Sat 8am-7pm",
                 "emergency_policy": "Escalate safety issues; do not diagnose gas hazards remotely.",
+                "knowledge_summary": "Never quote a final repair price before technician assessment. Financing is available on replacements.",
                 "booking_duration_minutes": 90,
                 "followup_after_minutes": 60,
                 "followup_max_attempts": 2,
@@ -87,6 +88,8 @@ def test_hvac_onboarding():
         assert data["profile"]["onboarding_completed"] is True
         assert data["profile"]["booking_duration_minutes"] == 90
         assert "AC repair" in data["profile"]["services"]
+        saved = client.get("/api/onboarding").json()
+        assert "final repair price" in saved["workspace"]["knowledge_summary"]
 
 
 def test_sales_agent_schedules_followup():
@@ -441,6 +444,13 @@ def test_customer_history_matches_returning_customer():
             },
         )
         assert first.status_code == 200
+        first_id = first.json()["id"]
+        conversation = client.post(
+            "/api/leads/" + str(first_id) + "/message",
+            json={"body": "My furnace stopped and I need someone tomorrow.", "channel": "web"},
+        )
+        assert conversation.status_code == 200
+
         second = client.post(
             "/api/leads",
             json={
@@ -453,7 +463,10 @@ def test_customer_history_matches_returning_customer():
         assert second.status_code == 200
         history = client.get("/api/customers/" + str(second.json()["id"]) + "/history")
         assert history.status_code == 200
-        assert len(history.json()["previous_requests"]) >= 1
+        payload = history.json()
+        assert len(payload["previous_requests"]) >= 1
+        assert any(item["lead_id"] == first_id for item in payload["conversations"])
+        assert "appointments" in payload
 
 
 def test_pilot_ui_has_no_inline_event_handlers_or_browser_prompts():
