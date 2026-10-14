@@ -1,85 +1,49 @@
-# Nexora AI Security Notes
+# Nexora AI Security — v0.5 Pilot
 
-Nexora currently targets local product validation. Do not expose the default demo configuration directly to the public internet.
+Do not expose DEMO mode to public customers. LIVE/production startup validates critical configuration.
 
-## Before production
+## Implemented in v0.5
 
-### Authentication
-
-- replace demo credentials
-- use a strong random `APP_SECRET`
-- add CSRF protection
-- add login rate limiting and account lockout policy
-- consider passkeys / MFA
-- add password reset and secure email verification
-- add session expiration and device/session management
+### Browser and authentication
+- signed session cookies with configured expiration,
+- HTTPS-only cookies in production,
+- CSRF tokens on authenticated state-changing requests,
+- login-attempt throttling,
+- restrictive CSP, frame, referrer and content-type headers,
+- generic customer-facing error page.
 
 ### Tenant isolation
+Business records are scoped to the authenticated workspace. Automated tests verify that one workspace cannot fetch another workspace's lead by object ID.
 
-- review every workspace-scoped query
-- add automated cross-tenant isolation tests
-- consider PostgreSQL row-level security
-- prevent object-ID enumeration between workspaces
+### Secrets and connectors
+Provider secrets are stored in `connector_secrets` and encrypted with `CONNECTOR_ENCRYPTION_KEY`. Connector responses never expose secret values.
 
-### Secrets
+Google OAuth state is bound to the signed user session/workspace. HubSpot and webhook credentials are encrypted before storage. Disconnect removes stored connector credentials.
 
-Never store provider tokens in plaintext connector records.
+D3Terminal managed-server output redacts common bearer token, API-key, token, secret and password patterns before display.
 
-Production connectors should use:
+### Automation control
+Human takeover cancels pending follow-up. Booking, completion, loss and explicit customer opt-out stop pending follow-up jobs.
 
-- encrypted secret storage
-- envelope encryption / managed KMS
-- scoped OAuth tokens
-- rotation support
-- revocation support
-- audit logs without leaking credentials
+### Production startup
+Production rejects:
+- `DEMO_MODE=true`,
+- the default or short `APP_SECRET`,
+- missing `CONNECTOR_ENCRYPTION_KEY`,
+- missing initial owner credentials.
 
-### External actions
+## Still required before broad public / enterprise launch
 
-Human approval should remain required for high-impact actions such as:
+- MFA/passkeys,
+- password reset and verified-email workflow,
+- expanded RBAC and session/device management,
+- managed KMS/HSM secret storage and provider-side OAuth revocation,
+- PostgreSQL row-level-security evaluation,
+- durable external queue/worker,
+- centralized structured logs/metrics/alerting,
+- automated dependency/SAST/container/secret scanning,
+- backup/restore drills,
+- channel-specific legal/consent controls before SMS/voice,
+- formal vulnerability-reporting channel.
 
-- refunds
-- payment/billing changes
-- account permission changes
-- bulk outreach
-- destructive data operations
-- technician dispatch or comparable real-world commitments
-
-### Messaging compliance
-
-Before enabling live email/SMS/voice campaigns, implement the consent and opt-out requirements that apply to the business, channel, jurisdiction, and provider.
-
-### Infrastructure
-
-Add:
-
-- HTTPS-only cookies
-- trusted host configuration
-- secure reverse proxy
-- database backups
-- migration tooling
-- structured logs
-- metrics and alerting
-- dependency scanning
-- secret scanning
-- SAST
-- container image scanning
-- production health/readiness checks
-
-## Reporting
-
-Until a dedicated security email or policy is added, do not publish real production secrets or customer data in GitHub issues.
-
-
-## v0.3 connector security
-
-Real connector secrets are stored in `connector_secrets` encrypted with a Fernet key derived from `CONNECTOR_ENCRYPTION_KEY`. The key itself must never be committed to the repository.
-
-Google OAuth state is stored in the signed user session and verified on callback. HubSpot credentials and outbound webhook signing secrets are encrypted before database storage.
-
-Before a public deployment:
-- move encryption keys to a managed secret/KMS system
-- add OAuth disconnect and token-revocation flows
-- add CSRF tokens to state-changing browser forms
-- make intake credentials unique per workspace
-- replace the in-process scheduler with a durable worker/queue
+High-impact actions such as refunds, payment changes, permission changes, destructive operations and real-world dispatch should continue to require policy/approval controls.
