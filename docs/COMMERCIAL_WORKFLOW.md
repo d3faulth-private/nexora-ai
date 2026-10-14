@@ -1,42 +1,41 @@
-# Stage-1 Commercial Workflow
-
-## Goal
-
-Get Nexora to the first paying HVAC customers as quickly as possible while measuring value honestly.
+# Nexora v0.5 Pilot Commercial Workflow
 
 ## Customer promise
 
-Nexora helps an HVAC business respond to leads, qualify them, follow up, book appointments, and recover opportunities the business might otherwise lose.
+Nexora helps an HVAC business respond before leads go cold, turn qualified demand into booked work, and prove value without inflating revenue claims.
 
 ## Core loop
 
 ```text
-lead arrives
-  -> qualification
-  -> appointment proposal
-  -> follow-up when necessary
-  -> booking
+inquiry
+  -> response / qualification
+  -> customer + business context
+  -> Google free/busy check
+  -> proposed appointment
+  -> follow-up sequence if still open
+  -> confirmed booking
+  -> CRM / Calendar update
   -> completed job
   -> actual revenue
   -> ROI evidence
 ```
 
-## Commercial metrics
+Human takeover pauses Nexora communication. Booking, completion, loss and opt-out stop follow-up.
 
-Nexora must keep these separate:
+## Revenue definitions
 
-- **Pipeline** — estimated value of open work.
-- **Booked pipeline** — estimated value attached to confirmed appointments.
-- **Completed revenue** — actual or confirmed job value entered after completion.
-- **Recovered revenue** — booked value where Nexora Follow-Up participated before conversion.
-- **Open opportunity** — value of active, unbooked leads that still need work.
+- **Pipeline** — estimated value of active open work.
+- **Booked pipeline** — estimated value associated with confirmed bookings.
+- **Completed revenue** — actual/confirmed job value after completion.
+- **Recovered revenue** — booked value where Nexora follow-up materially participated before conversion.
+- **Open opportunity** — active unbooked value that still needs attention.
 
-## Opportunity engine
+Estimated pipeline is never presented as money already generated.
 
-The first opportunity engine is intentionally deterministic. It ranks active unbooked leads by estimated value and recommends the next action using stage and contact recency.
+## First-customer commercial model
 
-Later versions can add conversion probability, service-area fit, capacity, customer history, seasonality, and model-assisted ranking.
+The pilot is designed for service-led onboarding and manual invoicing. Subscription billing is deliberately postponed until willingness to pay and measurable ROI are validated.
 
-## Revenue rule
+## Deliberately outside v0.5
 
-Never present estimated pipeline as money already generated. Customer-facing ROI must clearly distinguish estimates from completed revenue.
+SMS, voice, WhatsApp, multiple industries, marketplace/white-label features, full subscription billing and Nexora Radar.
