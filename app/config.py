@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     hubspot_private_app_token: str = ""
     outbound_webhook_url: str = ""
     outbound_webhook_secret: str = ""
+    intake_api_key: str = ""
 
     automation_enabled: bool = True
     automation_poll_seconds: int = 30

@@ -13,11 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
+from .automation import start_scheduler, stop_scheduler
 from .config import get_settings
 from .db import Base, SessionLocal, engine, get_db
 from .models import Agent, Approval, Appointment, Connector, Conversation, KnowledgeEntry, Lead, Message, Task, User
 from .schemas import AppointmentCreate, ConnectorUpdate, KnowledgeCreate, LeadCreate, LeadUpdate, ManagerCommand, MessageCreate
 from .seed import seed_demo
+from .v03_routes import router as v03_router
 from .services import (
     activity,
     authenticate,
@@ -38,10 +40,14 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_demo(db)
-    yield
+    start_scheduler()
+    try:
+        yield
+    finally:
+        stop_scheduler()
 
 
-app = FastAPI(title=settings.app_name, version="0.2.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="0.3.0", lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.app_secret,
@@ -49,6 +55,7 @@ app.add_middleware(
     https_only=settings.app_env == "production",
 )
 
+app.include_router(v03_router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
@@ -84,7 +91,7 @@ def health():
     return {
         "status": "ok",
         "app": settings.app_name,
-        "version": "0.2.0",
+        "version": "0.3.0",
         "ai_provider": settings.ai_provider,
     }
 
