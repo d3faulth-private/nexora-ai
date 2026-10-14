@@ -4,7 +4,7 @@
 
 Nexora AI is an AI workforce operating system for service businesses. It gives a business owner one control center for specialized AI agents that can capture leads, qualify inquiries, prepare follow-ups, support customers, coordinate operations, and surface sensitive actions for human approval.
 
-## Current build
+## Nexora v0.3 branch
 
 This repository contains a testable advanced MVP with:
 
@@ -27,7 +27,7 @@ This repository contains a testable advanced MVP with:
 - Audit trail
 - AI usage tracking
 - Pluggable local or OpenAI-compatible model endpoint
-- Safe mock connector mode for local testing
+- HVAC onboarding profile with services, service area, hours, emergency policy and follow-up rules\n- Human takeover / return-to-AI per conversation\n- Durable scheduled follow-up jobs\n- Google OAuth connector for Gmail + Calendar\n- HubSpot CRM connector\n- Signed outbound webhooks\n- Encrypted connector credential vault\n- External lead intake API\n- Safe mock connector mode for local testing
 - SQLite local development
 - PostgreSQL Docker deployment
 - FastAPI/OpenAPI docs
@@ -147,3 +147,41 @@ This is an advanced MVP intended for product validation and controlled testing. 
 ## License / use
 
 No open-source license has been granted in this repository. All rights are reserved unless the repository owner explicitly adds a license.
+
+
+## v0.3 real connector setup
+
+Generate an encryption key before saving real OAuth or API credentials:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Put the result in `.env` as `CONNECTOR_ENCRYPTION_KEY`.
+
+For Google Gmail + Calendar, create a Google OAuth Web Application and configure:
+
+```env
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://127.0.0.1:8000/api/connectors/google/callback
+```
+
+The dashboard can then start the Google OAuth flow. OAuth tokens are encrypted before being stored in the Nexora database.
+
+HubSpot can be connected with a private-app credential through the dashboard. Outbound webhooks can be configured with an endpoint and signing secret. Nexora signs webhook bodies with `X-Nexora-Signature: sha256=<digest>`.
+
+To enable external lead intake, set a strong `INTAKE_API_KEY`. Clients call:
+
+```text
+POST /api/intake/{workspace_id}
+X-Nexora-Intake-Key: <key>
+```
+
+## Human takeover
+
+Open a lead and choose **Take over**. Nexora stops automated replies for that conversation and records owner replies as human messages. **Return to Nexora** restores AI control.
+
+## Background automation
+
+When an open lead is contacted or qualified, Nexora schedules a durable follow-up job using the delay and retry limits from the HVAC business profile. The background scheduler processes due jobs even when the dashboard is not open.
