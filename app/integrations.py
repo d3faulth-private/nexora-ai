@@ -198,7 +198,7 @@ def gmail_send(
     body: str,
 ) -> IntegrationResult:
     item = connector(db, workspace_id, "google")
-    if item and item.mode == "mock":
+    if item and item.mode == "mock" and item.status == "connected":
         return IntegrationResult(
             ok=True,
             provider="mock_google",
@@ -335,7 +335,7 @@ def google_calendar_create(
     attendee_email: str | None = None,
 ) -> IntegrationResult:
     item = connector(db, workspace_id, "google")
-    if item and item.mode == "mock":
+    if item and item.mode == "mock" and item.status == "connected":
         return IntegrationResult(
             ok=True,
             provider="mock_google",
@@ -378,7 +378,7 @@ def hubspot_upsert_contact(
     contact: dict,
 ) -> IntegrationResult:
     item = connector(db, workspace_id, "hubspot")
-    if item and item.mode == "mock":
+    if item and item.mode == "mock" and item.status == "connected":
         return IntegrationResult(
             ok=True,
             provider="mock_hubspot",
@@ -468,7 +468,7 @@ def signed_webhook(
     payload: dict,
 ) -> IntegrationResult:
     item = connector(db, workspace_id, "webhook")
-    if item and item.mode == "mock":
+    if item and item.mode == "mock" and item.status == "connected":
         return IntegrationResult(
             ok=True,
             provider="mock_webhook",
