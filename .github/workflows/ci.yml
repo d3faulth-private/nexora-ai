@@ -2,7 +2,7 @@ name: Nexora CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v0.3]
   pull_request:
 
 jobs:
