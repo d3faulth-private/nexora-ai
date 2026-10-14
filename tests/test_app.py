@@ -226,3 +226,54 @@ def test_opportunity_engine_and_terminal_shortcuts():
     shell = OperatorShell()
     assert shell._normalize("what needs my attention") == "opportunities"
     assert shell._normalize("what's wrong") == "doctor"
+
+
+
+def test_html_routes_render_and_static_assets():
+    with TestClient(app) as client:
+        login_page = client.get("/login")
+        assert login_page.status_code == 200
+        assert "Nexora AI" in login_page.text
+
+        login(client)
+        dashboard_page = client.get("/")
+        assert dashboard_page.status_code == 200
+        assert "NEXORA AI" in dashboard_page.text
+        assert "Revenue Recovery" in dashboard_page.text
+
+        javascript = client.get("/static/app.js")
+        stylesheet = client.get("/static/styles.css")
+        assert javascript.status_code == 200
+        assert stylesheet.status_code == 200
+
+
+def test_pytest_database_is_isolated():
+    from app.db import engine
+
+    database_path = str(engine.url.database or "")
+    assert "nexora-pytest-" in database_path
+    assert not database_path.endswith("/nexora.db")
+    assert not database_path.endswith("\\nexora.db")
+
+
+def test_connector_health_distinguishes_optional_configuration():
+    from d3terminal import diagnostics
+
+    data = diagnostics.snapshot()
+    states = {item["slug"]: item["health"] for item in data["connectors"]}
+    assert states["hubspot"] == "NOT CONFIGURED"
+    assert states["webhook"] == "NOT CONFIGURED"
+    assert data["overall_health"] == "HEALTHY"
+
+
+def test_terminal_handles_multiline_command_input():
+    from d3terminal.shell import OperatorShell
+
+    shell = OperatorShell()
+    raw = "what's wrong\nwhat needs my attention\nshow revenue"
+    commands = [line.strip() for line in raw.splitlines() if line.strip()]
+    assert [shell._normalize(item) for item in commands] == [
+        "doctor",
+        "opportunities",
+        "revenue",
+    ]
