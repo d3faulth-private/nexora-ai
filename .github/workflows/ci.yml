@@ -2,7 +2,7 @@ name: Nexora CI
 
 on:
   push:
-    branches: [main, v0.3, v0.4-commercial, v0.4-repair-abcd]
+    branches: [main, v0.3, v0.4-commercial, v0.4-repair-abcd, v0.5-pilot]
   pull_request:
 
 jobs:
@@ -23,8 +23,11 @@ jobs:
           AUTOMATION_ENABLED: "false"
         run: python -m pytest
 
+      - name: Migration check
+        run: python scripts/migrate.py
+
       - name: Compile check
-        run: python -m compileall -q app d3terminal
+        run: python -m compileall -q app d3terminal migrations scripts
 
       - name: JavaScript syntax check
         run: node --check app/static/app.js
