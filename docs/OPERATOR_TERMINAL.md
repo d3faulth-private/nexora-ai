@@ -1,38 +1,28 @@
 # D3FAULTH Operator Terminal
 
-The D3FAULTH terminal is the internal operator surface for Nexora. Nexora customers continue to see Nexora branding; D3FAULTH identifies the creator/operator environment.
-
-## Prompt
+The D3FAULTH terminal is the internal operator console for Nexora. Customers continue to see Nexora branding.
 
 ```text
 d3faulth@nexora [DEVE]:~$
 ```
 
-## Core commands
+The prompt uses native `prompt-toolkit` styling rather than raw ANSI strings. DEVE, TEST and PROD have distinct environment styles. `NO_COLOR=1` returns plain text.
 
-- `status` — runtime, database, agents, and jobs
-- `doctor` — diagnostic summary
+## Commands
+
+- `status` — runtime, server health/PID, database, agents and jobs
+- `doctor` — HEALTHY / NOT CONFIGURED / DISCONNECTED / DEGRADED / FAILED diagnostic
 - `revenue` — commercial attribution snapshot
-- `opportunities` — prioritized open revenue opportunities
-- `leads` — recent lead state
-- `agents` — workforce state/autonomy
-- `jobs` — automation queue
-- `connectors` — provider state
-- `why last` — explain the latest recorded failure/problem
-- `serve` — start a local Nexora server managed by this console
-- `stop` / `restart` — lifecycle control
-- `open` — open the local dashboard
-- `history` — current operator session history
-- `exit`, `quit`, `q` — graceful shutdown
+- `opportunities` — prioritized revenue opportunities
+- `leads`, `agents`, `jobs`, `connectors` — operational state
+- `why last` — explain the latest recorded problem
+- `logs --tail N` — tail captured managed-server logs
+- `debug last` — latest managed-server failure/log tail
+- `serve` — start Uvicorn and wait for healthy `/health`
+- `stop`, `restart`, `open` — lifecycle controls
+- `history` — redacted command history
+- `exit`, `quit`, `q`, Ctrl+D — graceful shutdown
 
-Natural shortcuts currently map a few common operator intents, including `what's wrong`, `what needs my attention`, `who should i call today`, and `show revenue`.
+Ctrl+C cancels current input/operation where practical.
 
-## Exit behavior
-
-`exit`, `quit`, `q`, and Ctrl+D use one shutdown controller. It stops any web server started by the console, closes operator-owned resources, restores the terminal state, prints a session summary, and returns exit code 0.
-
-Ctrl+C cancels the current input/operation where practical and returns to the D3 prompt.
-
-## Safety
-
-The terminal intentionally redacts session-history entries that appear to contain tokens, secrets, passwords, or inline keys. Production secret values should never be printed by diagnostic commands.
+Managed-server logs redact common bearer token, API-key, token, secret and password patterns before display.
