@@ -536,6 +536,16 @@ def complete_job(
     actual_amount = float(amount_raw) if amount_raw is not None else None
     lead.stage = "completed"
 
+    for job in db.scalars(
+        select(AutomationJob).where(
+            AutomationJob.workspace_id == workspace.id,
+            AutomationJob.lead_id == lead.id,
+            AutomationJob.status == "pending",
+        )
+    ):
+        job.status = "cancelled"
+        job.last_error = "Job completed."
+
     appointment = db.scalar(
         select(Appointment)
         .where(
@@ -555,6 +565,21 @@ def complete_job(
         actual_amount=actual_amount,
         source="operator",
     )
+    try:
+        hubspot_upsert_contact(
+            db,
+            workspace.id,
+            {
+                "name": lead.name,
+                "email": lead.email,
+                "phone": lead.phone,
+                "zip_code": lead.zip_code,
+                "stage": lead.stage,
+            },
+        )
+    except Exception:
+        pass
+
     db.commit()
     db.refresh(event)
     return {
@@ -593,8 +618,9 @@ def availability(
     except Exception as exc:
         raise HTTPException(502, "Calendar availability check failed.") from exc
 
+    google = connector(db, workspace.id, "google")
     return {
-        "calendar_connected": bool(slots),
+        "calendar_connected": bool(google and google.status == "connected"),
         "duration_minutes": duration,
         "slots": [item.isoformat() for item in slots],
     }
