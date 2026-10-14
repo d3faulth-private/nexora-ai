@@ -35,13 +35,13 @@ def test_health_and_auth_boundary():
         assert health.status_code == 200
         assert health.json()["status"] == "ok"
         assert health.json()["app"] == "Nexora AI"
-        assert health.json()["version"] == "0.3.0"
+        assert health.json()["version"] == "0.4.0"
 
         protected = client.get("/api/dashboard")
         assert protected.status_code == 401
 
 
-def test_login_dashboard_and_v03_profile():
+def test_login_dashboard_and_commercial_profile():
     with TestClient(app) as client:
         login(client)
         response = client.get("/api/dashboard")
@@ -176,3 +176,53 @@ def test_manager_followup():
         )
         assert response.status_code == 200
         assert response.json()["intent"] == "followup_open"
+
+
+
+def test_revenue_attribution_and_completion():
+    with TestClient(app) as client:
+        login(client)
+        lead_id = create_lead(client, "Revenue Proof")
+
+        qualified = client.post(
+            "/api/leads/" + str(lead_id) + "/message",
+            json={
+                "body": "My AC failed and I want to book service tomorrow.",
+                "channel": "web",
+            },
+        )
+        assert qualified.status_code == 200
+        assert qualified.json()["appointment"] is not None
+
+        booked = client.post("/api/leads/" + str(lead_id) + "/book")
+        assert booked.status_code == 200
+
+        revenue = client.get("/api/revenue/summary")
+        assert revenue.status_code == 200
+        assert revenue.json()["booked_pipeline"] >= 1200
+
+        completed = client.post(
+            "/api/leads/" + str(lead_id) + "/complete-job",
+            json={"actual_amount": 1500},
+        )
+        assert completed.status_code == 200
+        assert completed.json()["revenue"] == 1500
+
+        revenue = client.get("/api/revenue/summary").json()
+        assert revenue["completed_revenue"] >= 1500
+
+
+def test_opportunity_engine_and_terminal_shortcuts():
+    with TestClient(app) as client:
+        login(client)
+        create_lead(client, "Opportunity Proof")
+        response = client.get("/api/opportunities")
+        assert response.status_code == 200
+        assert response.json()["count"] >= 1
+        assert response.json()["estimated_value"] >= 1200
+
+    from d3terminal.shell import OperatorShell
+
+    shell = OperatorShell()
+    assert shell._normalize("what needs my attention") == "opportunities"
+    assert shell._normalize("what's wrong") == "doctor"
