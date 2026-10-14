@@ -2,11 +2,9 @@
 
 ## Product model
 
-Nexora is designed as an AI workforce operating system rather than a generic workflow canvas.
+Nexora is an AI workforce operating layer for service businesses. One workspace represents one business and owns its users, agents, leads, conversations, appointments, automation jobs, approvals, knowledge, connectors, revenue events, and audit activity.
 
-A workspace represents one business. Each workspace owns its users, agents, leads, conversations, appointments, tasks, approvals, knowledge, connectors, activities, and usage.
-
-## Runtime flow
+## Runtime
 
 ```text
 Business Owner
@@ -14,96 +12,81 @@ Business Owner
      v
 Nexora Manager
      |
-     +----------------+----------------+----------------+
-     |                |                |                |
-Receptionist        Sales          Follow-Up        Support
-     |                |                |                |
-     +----------------+-------+--------+----------------+
-                              |
-                        Operations Agent
-                              |
-                    Policy / Approval Engine
-                              |
-                Connector + Action Abstraction
-                 /         |         |        \
-              Email     Calendar     CRM     Webhook
-                              |
-                         SQL Database
+     +-------------+-------------+-------------+
+     |             |             |             |
+Receptionist     Sales       Follow-Up       Support
+     |             |             |             |
+     +-------------+------+------+-------------+
+                          |
+                     Operations
+                          |
+                 Policy / Approval
+                          |
+             Connector + Action Layer
+              /        |        \
+          Google    HubSpot    Webhook
+                          |
+                    SQL Database
+
+Revenue + Opportunity Engine observes the same workspace state.
+D3Terminal provides the D3FAULTH operator surface.
 ```
 
-## Layers
+## Code boundaries
 
-### 1. Web/API layer
+### Web/API
+- `app/main.py` — application lifecycle, session auth, core REST routes
+- `app/api/routes.py` — commercial/onboarding/connector/revenue routes
+- `app/templates/` and `app/static/` — Nexora customer-facing UI
 
-`app/main.py`
+### Workforce
+- `app/agents.py` — routing and deterministic agent behavior
+- `app/ai.py` — optional OpenAI-compatible model provider
+- `app/services.py` — workspace orchestration and dashboard aggregation
 
-FastAPI exposes the dashboard and REST API. Session cookies currently authenticate the local product experience.
+### Automation
+- `app/automation.py` — durable database-backed follow-up jobs and scheduler
 
-### 2. Service/orchestration layer
+### Integrations
+- `app/connectors/providers.py` — Google, HubSpot, and signed webhook adapters
+- `app/vault.py` — encrypted credential storage
 
-`app/services.py`
+### Commercial intelligence
+- `app/revenue.py` — booked/completed/recovered revenue attribution and opportunity ranking
 
-This layer owns workspace-scoped orchestration, lead processing, manager objectives, approvals, activity recording, and dashboard aggregation.
+### Control
+- `app/policy.py` — action permission and human approval rules
+- `app/security.py` — password primitives
+- `d3terminal/` — D3FAULTH operator console, diagnostics, server lifecycle, graceful exit
 
-### 3. Agent behavior layer
+### Data
+- `app/models.py` — workspace-scoped SQLAlchemy schema
+- `app/db.py` — SQLite/PostgreSQL engine/session configuration
 
-`app/agents.py`
+## Autonomy
 
-Agents decide routing and domain behavior. The MVP combines deterministic rules with optional model-assisted response generation.
+Agents support `manual`, `guarded`, and `autonomous` modes. The policy layer remains authoritative: globally sensitive actions can still require explicit approval even when an agent is configured as autonomous.
 
-### 4. AI provider layer
+## Commercial measurement
 
-`app/ai.py`
+Nexora separates:
 
-Nexora can run without a model or use an OpenAI-compatible endpoint. Provider responses record usage metadata.
+- open pipeline,
+- booked pipeline,
+- completed revenue,
+- recovered revenue,
+- open opportunity value.
 
-### 5. Policy layer
-
-`app/policy.py`
-
-Sensitive actions such as refunds, bulk outreach, billing changes, data deletion, dispatch, and account permission changes require human approval.
-
-### 6. Connector layer
-
-`app/connectors.py`
-
-Connectors currently run in safe mock mode. Real email/calendar/CRM adapters should implement the same conceptual contract with:
-
-- OAuth or secure service credentials
-- encrypted secret storage
-- idempotency keys
-- retry policy
-- provider rate-limit handling
-- audit metadata
-- clear consent scope
-
-### 7. Data layer
-
-`app/models.py`
-
-The SQLAlchemy schema is workspace-scoped and supports SQLite locally and PostgreSQL in Docker.
-
-## Agent autonomy
-
-Every agent has an autonomy level:
-
-- **manual** — actions require human approval
-- **guarded** — routine reversible actions can proceed; sensitive actions require approval
-- **autonomous** — broader automation, but globally sensitive actions still require policy approval
-
-The policy engine remains authoritative over an agent's configured autonomy.
+This is deliberate. Pipeline must never be presented as confirmed revenue.
 
 ## Production evolution
 
-Recommended next architectural additions:
+The commercial branch deliberately avoids premature platform complexity. Before broader scale, the highest-value architecture work is:
 
-1. Redis-backed background job queue
-2. provider-specific OAuth vault
-3. row-level tenant isolation tests
-4. event bus / durable workflow engine
-5. model routing and prompt/version registry
-6. semantic knowledge retrieval
-7. connector SDK
-8. billing / metering subsystem
-9. organization roles and fine-grained permissions
-10. real-time websocket event stream
+1. production queue/worker instead of an in-process scheduler,
+2. Google free/busy scheduling and threaded Gmail replies,
+3. strong tenant-isolation tests and RBAC,
+4. managed secrets/KMS and OAuth revocation,
+5. structured knowledge retrieval,
+6. consent-aware SMS/voice,
+7. observability and billing.
