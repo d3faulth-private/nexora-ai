@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .agents import AgentDecision, customer_decision, followup_message, manager_intent, route_message
 from .automation import schedule_followup_for_lead
 from .hvac import hvac_knowledge_text
-from .connectors.providers import hubspot_upsert_contact, signed_webhook
+from .connectors.providers import google_available_slots, hubspot_upsert_contact, signed_webhook
 from .models import (
     Activity,
     Agent,
@@ -223,6 +223,18 @@ def set_handoff(
         control.mode = "human"
         control.taken_over_by_user_id = user.id
         control.taken_over_at = now
+        pending_jobs = list(
+            db.scalars(
+                select(AutomationJob).where(
+                    AutomationJob.workspace_id == workspace.id,
+                    AutomationJob.conversation_id == conversation.id,
+                    AutomationJob.status == "pending",
+                )
+            )
+        )
+        for job in pending_jobs:
+            job.status = "cancelled"
+            job.last_error = "Cancelled because human takeover is active."
         activity(
             db,
             workspace.id,
@@ -235,6 +247,9 @@ def set_handoff(
     elif mode == "ai":
         control.mode = "ai"
         control.returned_at = now
+        lead = db.get(Lead, conversation.lead_id)
+        if lead and lead.stage in {"new", "contacted", "qualified"}:
+            _ensure_followup_job(db, workspace, lead, conversation)
         activity(
             db,
             workspace.id,
@@ -365,6 +380,47 @@ def process_customer_message(
             conversation,
         )
 
+    lowered_body = body.lower()
+    opted_out = any(
+        phrase in lowered_body
+        for phrase in ("unsubscribe", "stop contacting", "do not contact", "don't contact", "opt out")
+    )
+    if opted_out:
+        lead.stage = "lost"
+        lead.last_contacted_at = datetime.now(timezone.utc)
+        db.add(
+            Message(
+                conversation_id=conversation.id,
+                direction="outbound",
+                actor="support",
+                body="Understood. We will stop follow-up for this request.",
+            )
+        )
+        for job in db.scalars(
+            select(AutomationJob).where(
+                AutomationJob.workspace_id == workspace.id,
+                AutomationJob.lead_id == lead.id,
+                AutomationJob.status == "pending",
+            )
+        ):
+            job.status = "cancelled"
+            job.last_error = "Customer opted out."
+        activity(
+            db,
+            workspace.id,
+            "support",
+            "customer_opt_out",
+            "Stopped automated follow-up for " + lead.name + ".",
+            "lead",
+            lead.id,
+        )
+        db.commit()
+        return (
+            AgentDecision(agent="support", reply="Understood. We will stop follow-up for this request.", actions=["opt_out"]),
+            None,
+            conversation,
+        )
+
     target = route_message(body)
     agent = get_agent(db, workspace.id, target)
     if not agent or not agent.enabled:
@@ -389,14 +445,42 @@ def process_customer_message(
 
     appointment = None
     if decision.proposal and decision.proposal.get("starts_at"):
+        proposed_start = datetime.fromisoformat(decision.proposal["starts_at"])
+        profile = get_profile(db, workspace.id)
+        duration = profile.booking_duration_minutes if profile else 60
+        availability_verified = False
+        try:
+            slots = google_available_slots(
+                db,
+                workspace.id,
+                proposed_start,
+                duration_minutes=duration,
+                count=3,
+            )
+            if slots:
+                proposed_start = slots[0]
+                availability_verified = True
+        except Exception:
+            availability_verified = False
+
         appointment = Appointment(
             workspace_id=workspace.id,
             lead_id=lead.id,
-            starts_at=datetime.fromisoformat(decision.proposal["starts_at"]),
+            starts_at=proposed_start,
             status="proposed",
-            notes="Proposed by Nexora Sales. Confirmation remains under business control.",
+            notes=(
+                "Proposed by Nexora Sales. "
+                + ("Google Calendar availability verified." if availability_verified else "Calendar availability not verified.")
+            ),
         )
         db.add(appointment)
+        if availability_verified and decision.reply:
+            decision.reply = (
+                decision.reply.rstrip()
+                + " I found an available service window at "
+                + proposed_start.strftime("%Y-%m-%d %H:%M %Z")
+                + "."
+            )
 
     if decision.reply:
         db.add(
