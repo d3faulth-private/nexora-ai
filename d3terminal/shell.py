@@ -18,6 +18,7 @@ from app.seed import seed_demo
 from . import diagnostics
 from .branding import VERSION, banner, fail, info, ok, prompt, warn
 from .runtime import ServerRuntime
+from .theme import D3_STYLE
 
 
 HELP = """D3FAULTH // NEXORA COMMANDS
@@ -31,6 +32,8 @@ HELP = """D3FAULTH // NEXORA COMMANDS
   jobs            automation queue
   connectors      integration status
   why [last]      explain the latest recorded problem
+  logs [--tail N] show managed server logs
+  debug last      show the latest managed server failure/log tail
   serve           start local Nexora web server
   stop            stop server started by this console
   restart         restart local Nexora server
@@ -68,13 +71,18 @@ class OperatorShell:
         self._completer = WordCompleter(
             [
                 "status", "doctor", "revenue", "opportunities", "leads", "agents",
-                "jobs", "connectors", "why", "serve", "stop", "restart", "open",
+                "jobs", "connectors", "why", "logs", "debug", "serve", "stop", "restart", "open",
                 "history", "version", "clear", "help", "exit", "quit", "q",
             ],
             ignore_case=True,
             sentence=True,
         )
-        self._session = PromptSession(history=self._history, completer=self._completer)
+        self._session = PromptSession(
+            history=self._history,
+            completer=self._completer,
+            style=D3_STYLE,
+            complete_while_typing=False,
+        )
 
     def initialize(self) -> None:
         Base.metadata.create_all(bind=engine)
@@ -178,11 +186,27 @@ class OperatorShell:
             self.show_connectors()
         elif command == "why":
             print(info(diagnostics.explain_last_problem()))
+        elif command == "logs":
+            limit = 50
+            if "--tail" in parts:
+                index = parts.index("--tail")
+                if index + 1 >= len(parts):
+                    raise ValueError("Usage: logs --tail <number>")
+                limit = int(parts[index + 1])
+            print(self.runtime.logs_tail(limit))
+        elif command == "debug":
+            if len(parts) > 1 and parts[1].lower() != "last":
+                raise ValueError("Usage: debug last")
+            print(self.runtime.debug_last())
         elif command == "history":
             print("\n".join(self.stats.history) or "No commands yet.")
         elif command == "serve":
+            print(info("Starting Nexora and waiting for /health..."))
             if self.runtime.start():
-                print(ok("Nexora server started at http://127.0.0.1:8000"))
+                print(ok("Nexora server started: " + self.runtime.base_url))
+                print(ok("Health check: " + self.runtime.health()))
+                if self.runtime.pid:
+                    print(info("Managed PID: " + str(self.runtime.pid)))
             else:
                 print(warn("Nexora server is already running from this console."))
         elif command == "stop":
@@ -191,8 +215,9 @@ class OperatorShell:
             else:
                 print(warn("No managed Nexora server is running."))
         elif command == "restart":
+            print(info("Restarting Nexora and waiting for /health..."))
             self.runtime.restart()
-            print(ok("Nexora server restarted."))
+            print(ok("Nexora server restarted: " + self.runtime.health()))
         elif command == "open":
             webbrowser.open("http://127.0.0.1:8000")
             print(ok("Dashboard open request sent to the browser."))
@@ -205,7 +230,10 @@ class OperatorShell:
     def show_status(self) -> None:
         data = diagnostics.snapshot()
         print("D3FAULTH // NEXORA STATUS")
+        runtime_health = self.runtime.health()
         print("  server........ " + ("RUNNING" if self.runtime.running else "NOT MANAGED"))
+        print("  server health. " + runtime_health)
+        print("  managed pid... " + (str(self.runtime.pid) if self.runtime.pid else "—"))
         print("  database...... " + str(data["database"]))
         print("  workspace..... " + str(data["workspace"] or "not initialized"))
         print("  agents........ " + str(data["agents_enabled"]) + "/" + str(data["agents_total"]) + " enabled")
