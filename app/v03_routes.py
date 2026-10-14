@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from .automation import run_due_jobs_once
 from .config import get_settings
 from .db import get_db
-from .integrations import (
+from .connectors.providers import (
     exchange_google_code,
     get_secret,
     gmail_pull_unread,
