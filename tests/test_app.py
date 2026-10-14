@@ -729,3 +729,48 @@ def test_followup_does_not_claim_delivery_without_google():
             )
             assert job.status == "completed"
             assert "Google email delivery is not connected" in (job.last_error or "")
+
+
+
+def test_live_mode_refuses_demo_seeded_database(monkeypatch):
+    import pytest
+    from types import SimpleNamespace
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.db import Base
+    from app.models import User, Workspace
+    from app.security import hash_password
+    import app.seed as seed_module
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        workspace = Workspace(name="Nexora HVAC Demo", industry="HVAC")
+        db.add(workspace)
+        db.flush()
+        db.add(
+            User(
+                workspace_id=workspace.id,
+                email="admin@nexora.local",
+                name="Demo Admin",
+                password_hash=hash_password("demo-password"),
+                role="owner",
+            )
+        )
+        db.commit()
+
+        fake = SimpleNamespace(
+            demo_mode=False,
+            demo_email="admin@nexora.local",
+            bootstrap_business_name="Customer HVAC",
+            bootstrap_admin_email="owner@customer.test",
+            bootstrap_admin_password="strong-password-123",
+            default_timezone="America/New_York",
+        )
+        monkeypatch.setattr(seed_module, "get_settings", lambda: fake)
+
+        with pytest.raises(RuntimeError, match="cannot reuse a demo-seeded database"):
+            seed_module.seed_workspace(db)
