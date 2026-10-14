@@ -313,11 +313,26 @@ async function openLead(id) {
       esc(message.body) + '</div>'
   ).join("") : '<div class="hint">No messages yet.</div>';
 
-  el("#customerHistory").innerHTML = history.previous_requests.length ?
-    history.previous_requests.map((item) =>
-      '<div class="history-item"><strong>' + esc(item.stage.toUpperCase()) + '</strong>' +
-      '<span>' + esc(item.issue || "No issue") + '</span><small>' + timeText(item.created_at) + '</small></div>'
-    ).join("") : '<div class="hint">No previous requests found for this customer.</div>';
+  const requestHistory = history.previous_requests.map((item) =>
+    '<div class="history-item"><strong>REQUEST · ' + esc(item.stage.toUpperCase()) + '</strong>' +
+    '<span>' + esc(item.issue || "No issue") + '</span><small>' + timeText(item.created_at) + '</small></div>'
+  );
+  const appointmentHistory = (history.appointments || [])
+    .filter((item) => item.lead_id !== activeLead)
+    .map((item) =>
+      '<div class="history-item"><strong>APPOINTMENT · ' + esc(item.status.toUpperCase()) + '</strong>' +
+      '<span>' + esc(item.lead_name) + '</span><small>' + timeText(item.starts_at) + '</small></div>'
+    );
+  const conversationHistory = (history.conversations || [])
+    .filter((item) => item.lead_id !== activeLead)
+    .map((item) =>
+      '<div class="history-item"><strong>CONVERSATION · ' + esc(item.channel.toUpperCase()) + '</strong>' +
+      '<span>' + item.message_count + ' message(s)</span><small>' + timeText(item.created_at) + '</small></div>'
+    );
+  const historyCards = requestHistory.concat(appointmentHistory, conversationHistory);
+  el("#customerHistory").innerHTML = historyCards.length ?
+    historyCards.join("") :
+    '<div class="hint">No previous requests, appointments or conversations found for this customer.</div>';
 
   el("#leadAppointments").innerHTML = lead.appointments.length ?
     lead.appointments.map((item) =>
