@@ -10,7 +10,7 @@ from .agents import AgentDecision, customer_decision, followup_message, manager_
 from .automation import schedule_followup_for_lead
 from .config import get_settings
 from .hvac import hvac_knowledge_text
-from .connectors.providers import gmail_send, gmail_thread_for_email, google_available_slots, hubspot_upsert_contact, signed_webhook
+from .connectors.providers import gmail_reply_context_for_email, gmail_send, google_available_slots, hubspot_upsert_contact, signed_webhook
 from .models import (
     Activity,
     Agent,
@@ -548,13 +548,15 @@ def add_human_message(
     )
     if conversation.channel == "email" and lead.email:
         try:
+            reply_context = gmail_reply_context_for_email(db, workspace.id, lead.email)
             gmail_send(
                 db,
                 workspace.id,
                 lead.email,
                 "Re: Your service request",
                 body,
-                thread_id=gmail_thread_for_email(db, workspace.id, lead.email),
+                thread_id=reply_context.get("thread_id"),
+                in_reply_to=reply_context.get("in_reply_to"),
             )
         except Exception:
             pass
