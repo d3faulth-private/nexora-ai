@@ -18,7 +18,6 @@ from ..connectors.providers import (
     exchange_google_code,
     gmail_mark_read,
     gmail_pull_unread,
-    gmail_send,
     google_authorization_url,
     google_available_slots,
     google_calendar_create,
@@ -43,6 +42,7 @@ from ..services import (
     conversation_for_lead,
     get_profile,
     get_workspace,
+    latest_conversation_for_lead,
     process_customer_message,
     profile_dict,
     set_handoff,
@@ -113,7 +113,9 @@ def takeover(lead_id: int, request: Request, db: Session = Depends(get_db)):
     )
     if not lead:
         raise HTTPException(404, "Lead not found")
-    conversation = conversation_for_lead(db, workspace.id, lead.id, "web")
+    conversation = latest_conversation_for_lead(db, workspace.id, lead.id)
+    if not conversation:
+        conversation = conversation_for_lead(db, workspace.id, lead.id, "web")
     control = set_handoff(db, workspace, conversation, user, "human")
     return {"lead_id": lead.id, "conversation_id": conversation.id, "mode": control.mode}
 
@@ -126,7 +128,9 @@ def return_to_ai(lead_id: int, request: Request, db: Session = Depends(get_db)):
     )
     if not lead:
         raise HTTPException(404, "Lead not found")
-    conversation = conversation_for_lead(db, workspace.id, lead.id, "web")
+    conversation = latest_conversation_for_lead(db, workspace.id, lead.id)
+    if not conversation:
+        conversation = conversation_for_lead(db, workspace.id, lead.id, "web")
     control = set_handoff(db, workspace, conversation, user, "ai")
     return {"lead_id": lead.id, "conversation_id": conversation.id, "mode": control.mode}
 
@@ -333,26 +337,16 @@ def gmail_sync(request: Request, db: Session = Depends(get_db)):
         ).strip()
 
         if body:
-            decision, _, _ = process_customer_message(
-                db,
-                workspace,
-                lead,
-                body,
-                "email",
-            )
-            if decision.reply and lead.email:
-                try:
-                    gmail_send(
-                        db,
-                        workspace.id,
-                        lead.email,
-                        "Re: " + (incoming.get("subject") or "Your service request"),
-                        decision.reply,
-                        thread_id=str(incoming.get("thread_id") or "") or None,
-                        in_reply_to=str(incoming.get("message_id_header") or "") or None,
-                    )
-                except Exception:
-                    pass
+            try:
+                process_customer_message(
+                    db,
+                    workspace,
+                    lead,
+                    body,
+                    "email",
+                )
+            except Exception as exc:
+                raise HTTPException(502, "Gmail reply delivery failed; the message remains retryable.") from exc
             created.append(lead.id)
 
         event = db.scalar(
