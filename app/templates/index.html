@@ -12,12 +12,13 @@
       <div class="brand-mark">N</div>
       <div>
         <strong>NEXORA AI</strong>
-        <span>AI Workforce OS · v0.3</span>
+        <span>AI Workforce OS · v0.4</span>
       </div>
     </div>
 
     <nav>
       <button class="nav active" data-scroll="overview">Overview</button>\n      <button class="nav" data-scroll="onboarding">Business Profile</button>
+      <button class="nav" data-scroll="opportunities">Opportunities</button>
       <button class="nav" data-scroll="agents">AI Workforce</button>
       <button class="nav" data-scroll="leads">Leads</button>
       <button class="nav" data-scroll="approvals">Approvals</button>
@@ -65,6 +66,17 @@
 
     <section class="metrics" id="metrics"></section>
 
+    <section id="opportunities">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">REVENUE RECOVERY</div>
+          <h2>Opportunities</h2>
+        </div>
+        <span class="hint">Highest-value open leads Nexora recommends working next</span>
+      </div>
+      <div class="panel" id="opportunityList"></div>
+    </section>
+
     <section id="onboarding">
       <div class="section-head">
         <div><div class="eyebrow">HVAC OPERATING PROFILE</div><h2>Business setup</h2></div>
@@ -99,6 +111,7 @@
               <th>Lead</th>
               <th>Issue</th>
               <th>Stage</th>
+              <th>Control</th>
               <th>Urgency</th>
               <th>Value</th>
               <th></th>
@@ -147,12 +160,13 @@
       <button class="close" type="button" data-close="leadDialog">×</button>
       <div class="eyebrow">LEAD CONVERSATION</div>
       <h2 id="dialogTitle"></h2>
-      <div id="leadSummary" class="lead-summary"></div>\n      <div class="lead-actions"><button type="button" id="takeoverBtn" class="ghost"></button><button type="button" id="bookBtn" class="ghost hidden">Confirm appointment</button></div>
+      <div id="leadSummary" class="lead-summary"></div>\n      <div class="lead-actions"><button type="button" id="takeoverBtn" class="ghost"></button><button type="button" id="bookBtn" class="ghost hidden">Confirm appointment</button><button type="button" id="completeJobBtn" class="ghost hidden">Complete job</button></div>
       <div id="conversation" class="conversation"></div>
       <div class="message-compose">
         <textarea id="messageBody" placeholder="Enter a customer message..."></textarea>
         <button type="button" id="sendMessage">Send</button>
       </div>
+      <div id="conversationModeNote" class="hint"></div>
     </div>
   </dialog>
 
