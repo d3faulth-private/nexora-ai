@@ -496,3 +496,68 @@ def test_live_seed_creates_clean_workspace(monkeypatch):
         assert int(db.scalar(select(func.count(Lead.id))) or 0) == 0
         modes = set(db.scalars(select(Connector.mode)))
         assert modes == {"real"}
+
+
+
+def test_security_headers_and_login_throttle():
+    with TestClient(app) as client:
+        page = client.get("/login")
+        assert page.headers["x-content-type-options"] == "nosniff"
+        assert page.headers["x-frame-options"] == "DENY"
+        assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
+
+        for _ in range(5):
+            failed = client.post(
+                "/login",
+                data={"email": "limit-test@example.com", "password": "wrong"},
+                follow_redirects=False,
+            )
+            assert failed.status_code == 401
+        blocked = client.post(
+            "/login",
+            data={"email": "limit-test@example.com", "password": "wrong"},
+            follow_redirects=False,
+        )
+        assert blocked.status_code == 429
+
+
+def test_workspace_object_isolation():
+    from app.db import SessionLocal
+    from app.models import Lead, Workspace
+
+    with TestClient(app) as client:
+        login(client)
+        with SessionLocal() as db:
+            other = Workspace(name="Other Tenant HVAC", industry="HVAC")
+            db.add(other)
+            db.flush()
+            hidden = Lead(
+                workspace_id=other.id,
+                name="Other Tenant Lead",
+                email="hidden@example.com",
+                issue="Private tenant data",
+                estimated_value=9999,
+            )
+            db.add(hidden)
+            db.commit()
+            hidden_id = hidden.id
+
+        response = client.get("/api/leads/" + str(hidden_id))
+        assert response.status_code == 404
+
+
+def test_production_runtime_rejects_unsafe_defaults():
+    import pytest
+
+    from app.config import Settings
+
+    unsafe = Settings(
+        app_env="production",
+        demo_mode=False,
+        app_secret="change-this-before-production",
+        connector_encryption_key="test-key",
+        bootstrap_admin_email="owner@example.com",
+        bootstrap_admin_password="strong-password-123",
+    )
+    with pytest.raises(RuntimeError):
+        unsafe.validate_runtime()
