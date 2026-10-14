@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel, Field
 
 
@@ -18,8 +19,8 @@ class LeadCreate(BaseModel):
 
 
 class LeadUpdate(BaseModel):
-    stage: str | None = None
-    urgency: str | None = None
+    stage: Literal["new", "contacted", "qualified", "booked", "completed", "lost", "support"] | None = None
+    urgency: Literal["normal", "high", "urgent"] | None = None
     issue: str | None = None
     estimated_value: float | None = None
 
@@ -49,7 +50,7 @@ class WorkspaceUpdate(BaseModel):
 
 class OnboardingUpdate(BaseModel):
     business_name: str = Field(min_length=1, max_length=160)
-    industry: str = "HVAC"
+    industry: Literal["HVAC"] = "HVAC"
     timezone: str = "America/New_York"
     phone: str | None = None
     email: str | None = None
@@ -91,7 +92,7 @@ class HubSpotConnect(BaseModel):
 
 class WebhookConnect(BaseModel):
     url: str = Field(min_length=8)
-    secret: str = ""
+    secret: str = Field(min_length=16)
 
 
 class IntakeEvent(BaseModel):
