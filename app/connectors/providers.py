@@ -198,6 +198,7 @@ def gmail_send(
     subject: str,
     body: str,
     thread_id: str | None = None,
+    in_reply_to: str | None = None,
 ) -> IntegrationResult:
     item = connector(db, workspace_id, "google")
     if item and item.mode == "mock" and item.status == "connected":
@@ -213,6 +214,9 @@ def gmail_send(
     message = EmailMessage()
     message["To"] = to
     message["Subject"] = subject
+    if in_reply_to:
+        message["In-Reply-To"] = in_reply_to
+        message["References"] = in_reply_to
     message.set_content(body)
 
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii").rstrip("=")
@@ -289,7 +293,7 @@ def gmail_pull_unread(
                 ExternalEvent.idempotency_key == message_id,
             )
         )
-        if exists:
+        if exists and exists.status == "processed":
             continue
 
         detail = httpx.get(
@@ -308,20 +312,25 @@ def gmail_pull_unread(
             "from": _gmail_header(payload, "From"),
             "reply_to": _gmail_header(payload, "Reply-To"),
             "subject": _gmail_header(payload, "Subject"),
+            "message_id_header": _gmail_header(payload, "Message-ID"),
             "body": _gmail_text(payload).strip(),
         }
         output.append(parsed)
 
-        db.add(
-            ExternalEvent(
-                workspace_id=workspace_id,
-                provider="gmail",
-                idempotency_key=message_id,
-                event_type="inbound_email",
-                payload_json=json.dumps(parsed),
-                status="received",
+        if exists:
+            exists.payload_json = json.dumps(parsed)
+            exists.status = "received"
+        else:
+            db.add(
+                ExternalEvent(
+                    workspace_id=workspace_id,
+                    provider="gmail",
+                    idempotency_key=message_id,
+                    event_type="inbound_email",
+                    payload_json=json.dumps(parsed),
+                    status="received",
+                )
             )
-        )
 
     if output:
         db.commit()
@@ -603,28 +612,9 @@ def google_available_slots(
 
 
 def gmail_thread_for_email(db: Session, workspace_id: int, email: str) -> str | None:
-    rows = list(
-        db.scalars(
-            select(ExternalEvent)
-            .where(
-                ExternalEvent.workspace_id == workspace_id,
-                ExternalEvent.provider == "gmail",
-                ExternalEvent.event_type == "inbound_email",
-            )
-            .order_by(ExternalEvent.id.desc())
-            .limit(100)
-        )
-    )
-    target = email.strip().lower()
-    for row in rows:
-        try:
-            payload = json.loads(row.payload_json or "{}")
-        except json.JSONDecodeError:
-            continue
-        sender = str(payload.get("reply_to") or payload.get("from") or "").lower()
-        if target and target in sender and payload.get("thread_id"):
-            return str(payload["thread_id"])
-    return None
+    context = gmail_reply_context_for_email(db, workspace_id, email)
+    value = context.get("thread_id")
+    return str(value) if value else None
 
 
 def test_connector(db: Session, workspace_id: int, slug: str) -> IntegrationResult:
@@ -682,3 +672,46 @@ def disconnect_connector(db: Session, workspace_id: int, slug: str) -> None:
         item.config_json = "{}"
         item.last_sync_at = datetime.now(timezone.utc)
     db.commit()
+
+
+
+def gmail_mark_read(db: Session, workspace_id: int, message_id: str) -> None:
+    item = connector(db, workspace_id, "google")
+    if item and item.mode == "mock" and item.status == "connected":
+        return
+    token = _google_token(db, workspace_id)
+    response = httpx.post(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/" + message_id + "/modify",
+        headers={"Authorization": "Bearer " + token},
+        json={"removeLabelIds": ["UNREAD"]},
+        timeout=20,
+    )
+    response.raise_for_status()
+
+
+def gmail_reply_context_for_email(db: Session, workspace_id: int, email: str) -> dict:
+    rows = list(
+        db.scalars(
+            select(ExternalEvent)
+            .where(
+                ExternalEvent.workspace_id == workspace_id,
+                ExternalEvent.provider == "gmail",
+                ExternalEvent.event_type == "inbound_email",
+            )
+            .order_by(ExternalEvent.id.desc())
+            .limit(100)
+        )
+    )
+    target = email.strip().lower()
+    for row in rows:
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        sender = str(payload.get("reply_to") or payload.get("from") or "").lower()
+        if target and target in sender:
+            return {
+                "thread_id": payload.get("thread_id"),
+                "in_reply_to": payload.get("message_id_header"),
+            }
+    return {}
