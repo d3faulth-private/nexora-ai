@@ -124,11 +124,13 @@ def _run_followup(db, job: AutomationJob) -> str:
         return "follow-up skipped: Google email delivery is not connected"
 
     reply_context = gmail_reply_context_for_email(db, job.workspace_id, lead.email)
+    original_subject = str(reply_context.get("subject") or "Your service request")
+    reply_subject = original_subject if original_subject.lower().startswith("re:") else "Re: " + original_subject
     gmail_send(
         db,
         job.workspace_id,
         lead.email,
-        "Following up on your service request",
+        reply_subject,
         body,
         thread_id=reply_context.get("thread_id"),
         in_reply_to=reply_context.get("in_reply_to"),
