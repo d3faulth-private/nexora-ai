@@ -1,9 +1,9 @@
 # Security Policy
 
-Nexora AI is currently an advanced MVP.
+Nexora AI v0.5 is a paid-pilot build, not a broad public/enterprise release.
 
-Do not report secrets, credentials, or customer data in a public issue.
+Do not publish secrets, credentials or customer data in a public issue.
 
-For the current production-hardening checklist, see [docs/SECURITY.md](docs/SECURITY.md).
+Implemented pilot controls and remaining launch requirements are maintained in [docs/SECURITY.md](docs/SECURITY.md).
 
 Until a dedicated vulnerability-reporting address is published, contact the repository owner privately for security-sensitive reports.
