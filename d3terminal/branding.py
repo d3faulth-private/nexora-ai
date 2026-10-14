@@ -8,7 +8,7 @@ from .theme import prompt_tokens
 
 PROJECT = "NEXORA AI"
 PROJECT_SLUG = "nexora"
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 
 def _ansi(code: str, text: str) -> str:
