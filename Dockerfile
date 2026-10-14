@@ -5,11 +5,14 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY pyproject.toml .
+COPY pyproject.toml alembic.ini ./
 COPY app ./app
+COPY d3terminal ./d3terminal
+COPY migrations ./migrations
+COPY scripts ./scripts
 
 RUN pip install --no-cache-dir .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "python scripts/migrate.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
