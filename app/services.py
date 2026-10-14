@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .agents import AgentDecision, customer_decision, followup_message, manager_intent, route_message
 from .automation import schedule_followup_for_lead
 from .hvac import hvac_knowledge_text
-from .connectors.providers import google_available_slots, hubspot_upsert_contact, signed_webhook
+from .connectors.providers import gmail_send, gmail_thread_for_email, google_available_slots, hubspot_upsert_contact, signed_webhook
 from .models import (
     Activity,
     Agent,
@@ -309,6 +309,7 @@ def _sync_external_best_effort(db: Session, workspace: Workspace, lead: Lead) ->
         "email": lead.email,
         "phone": lead.phone,
         "zip_code": lead.zip_code,
+        "stage": lead.stage,
     }
     try:
         hubspot_upsert_contact(db, workspace.id, contact)
@@ -543,6 +544,18 @@ def add_human_message(
             body=body,
         )
     )
+    if conversation.channel == "email" and lead.email:
+        try:
+            gmail_send(
+                db,
+                workspace.id,
+                lead.email,
+                "Re: Your service request",
+                body,
+                thread_id=gmail_thread_for_email(db, workspace.id, lead.email),
+            )
+        except Exception:
+            pass
     lead.last_contacted_at = datetime.now(timezone.utc)
     activity(
         db,
