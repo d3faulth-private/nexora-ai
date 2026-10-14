@@ -351,7 +351,8 @@ function setWizardStep(step) {
       '<strong>' + esc(data.business_name || "Business") + '</strong>' +
       '<p>' + esc(data.services || "No services entered").replaceAll("\n", ", ") + '</p>' +
       '<p>' + esc(data.service_area || "No service area entered") + '</p>' +
-      '<p>' + esc(data.business_hours || "No business hours entered") + '</p>';
+      '<p>' + esc(data.business_hours || "No business hours entered") + '</p>' +
+      '<p>' + esc(data.knowledge_summary || "No additional policies or FAQs entered") + '</p>';
   }
 }
 
@@ -370,6 +371,7 @@ async function openOnboarding() {
   form.elements.service_area.value = p.service_area || "";
   form.elements.business_hours.value = p.business_hours || "";
   form.elements.emergency_policy.value = p.emergency_policy || "";
+  form.elements.knowledge_summary.value = w.knowledge_summary || "";
   form.elements.booking_duration_minutes.value = p.booking_duration_minutes || 60;
   form.elements.followup_after_minutes.value = p.followup_after_minutes || 120;
   form.elements.followup_max_attempts.value = p.followup_max_attempts || 3;
