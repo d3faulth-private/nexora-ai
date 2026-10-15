@@ -883,3 +883,51 @@ def test_demo_mode_blocks_real_connector_credentials():
         )
         assert patch.status_code == 403
         assert "simulated" in patch.json()["detail"].lower()
+
+
+
+def test_final_modal_system_is_viewport_safe():
+    from pathlib import Path
+
+    html = Path("app/templates/index.html").read_text(encoding="utf-8")
+    css = Path("app/static/styles.css").read_text(encoding="utf-8")
+    js = Path("app/static/app.js").read_text(encoding="utf-8")
+
+    assert 'id="leadDialog" class="lead-dialog"' in html
+    assert 'class="lead-dialog-header"' in html
+    assert 'class="lead-dialog-body"' in html
+    assert 'class="conversation-panel"' in html
+
+    assert ".hidden{display:none!important}" in css
+    assert 'body[data-mode="demo"] .setup-banner{display:none!important}' in css
+    assert "dialog:not(#onboardingDialog)" in css
+    assert "max-height:calc(100dvh - 24px)" in css
+    assert "#leadDialog" in css
+    assert "width:min(1120px,calc(100vw - 24px))" in css
+    assert "grid-template-rows:auto minmax(0,1fr)" in css
+    assert "height:clamp(180px,32vh,320px)" in css
+
+    assert 'const wasOpen = leadDialog.open;' in js
+    assert 'leadDialog.querySelector(".lead-dialog-body")' in js
+
+
+def test_managed_server_startup_is_patient_and_deterministic():
+    import inspect
+
+    from d3terminal.runtime import ServerRuntime
+
+    signature = inspect.signature(ServerRuntime.start)
+    assert signature.parameters["health_timeout"].default == 15.0
+
+    source = inspect.getsource(ServerRuntime.start)
+    assert 'Path(__file__).resolve().parents[1]' in source
+    assert 'child_env["PYTHONUNBUFFERED"] = "1"' in source
+    assert "cwd=str(project_root)" in source
+
+
+def test_pasted_command_failures_stop_the_chain():
+    from pathlib import Path
+
+    shell_source = Path("d3terminal/shell.py").read_text(encoding="utf-8")
+    assert "Remaining pasted commands were not executed because the previous command failed." in shell_source
+    assert "if len(commands) > 1:" in shell_source
