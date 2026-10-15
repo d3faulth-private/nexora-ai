@@ -329,7 +329,6 @@ function emptyState(label, message) {
 
 function render() {
   el("#workspaceName").textContent = state.workspace.name;
-  el("#workspaceMeta").textContent = state.workspace.industry + " · " + state.workspace.timezone;
   renderMetrics();
   renderOpportunities();
   renderProfile();
