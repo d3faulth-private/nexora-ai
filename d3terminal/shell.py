@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine
-from app.seed import seed_demo
+from app.seed import reset_operational_workspace, seed_demo
 
 from . import diagnostics
 from .branding import VERSION, banner, fail, info, ok, prompt, warn
@@ -31,6 +31,7 @@ HELP = """D3FAULTH // NEXORA COMMANDS
   agents          AI workforce status
   jobs            automation queue
   connectors      integration status
+  workspace reset restore local HVAC operating dataset (confirmation required)
   why [last]      explain the latest recorded problem
   logs [--tail N] show managed server logs
   debug last      show the latest managed server failure/log tail
@@ -71,7 +72,8 @@ class OperatorShell:
         self._completer = WordCompleter(
             [
                 "status", "doctor", "revenue", "opportunities", "leads", "agents",
-                "jobs", "connectors", "why", "logs", "debug", "serve", "stop", "restart", "open",
+                "jobs", "connectors", "workspace", "workspace reset", "workspace reset --confirm",
+                "why", "logs", "debug", "serve", "stop", "restart", "open",
                 "history", "version", "clear", "help", "exit", "quit", "q",
             ],
             ignore_case=True,
@@ -191,6 +193,10 @@ class OperatorShell:
             self.show_jobs()
         elif command == "connectors":
             self.show_connectors()
+        elif command == "workspace":
+            if len(parts) < 2 or parts[1].lower() != "reset":
+                raise ValueError("Usage: workspace reset [--confirm]")
+            self.reset_workspace("--confirm" in parts[2:])
         elif command == "why":
             self._emit("info", diagnostics.explain_last_problem())
         elif command == "logs":
@@ -360,6 +366,21 @@ class OperatorShell:
                 + " | attempts "
                 + str(item["attempts"])
             )
+
+    def reset_workspace(self, confirmed: bool = False) -> None:
+        if self.settings.app_env == "production" or not self.settings.demo_mode:
+            raise RuntimeError("Workspace reset is available only in local development/test mode.")
+        if self.runtime.running:
+            raise RuntimeError("Stop the managed Nexora server before resetting the local workspace.")
+        if not confirmed:
+            self._emit("warn", "This replaces local leads, conversations, appointments, revenue, tasks, approvals, and activity.")
+            self._emit("info", "Run 'workspace reset --confirm' to restore the standard HVAC operating dataset.")
+            return
+
+        with SessionLocal() as db:
+            workspace = reset_operational_workspace(db)
+        self._emit("ok", "Operational HVAC workspace restored: " + workspace.name)
+        self._emit("info", "12 leads · 4 appointments · 2 completed jobs · 2 pending follow-ups · 1 approval")
 
     def show_connectors(self) -> None:
         items = diagnostics.snapshot()["connectors"]
