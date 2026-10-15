@@ -26,6 +26,10 @@ CONNECTORS = [
     ("webhook", "Outbound Webhook"),
 ]
 
+DEMO_WORKSPACE_NAME = "Northstar Heating & Air"
+LEGACY_DEMO_WORKSPACE_NAME = "Nexora HVAC Demo"
+
+
 
 def ensure_defaults(db: Session, workspace: Workspace, demo_mode: bool) -> None:
     profile = db.scalar(
@@ -86,22 +90,59 @@ def ensure_defaults(db: Session, workspace: Workspace, demo_mode: bool) -> None:
     db.commit()
 
 
+def _find_demo_workspace(db: Session, settings) -> Workspace | None:
+    demo_user = db.scalar(select(User).where(User.email == settings.demo_email))
+    if demo_user:
+        workspace = db.get(Workspace, demo_user.workspace_id)
+        if workspace:
+            return workspace
+    return db.scalar(
+        select(Workspace)
+        .where(Workspace.name.in_([DEMO_WORKSPACE_NAME, LEGACY_DEMO_WORKSPACE_NAME]))
+        .order_by(Workspace.id)
+    )
+
+
+def _mark_demo_ready(db: Session, workspace: Workspace) -> None:
+    ensure_defaults(db, workspace, True)
+    profile = db.scalar(
+        select(WorkspaceProfile).where(WorkspaceProfile.workspace_id == workspace.id)
+    )
+    if profile and not profile.onboarding_completed:
+        profile.onboarding_completed = True
+        db.commit()
+
+
 def _seed_demo(db: Session) -> Workspace:
     settings = get_settings()
-    workspace = db.scalar(select(Workspace).where(Workspace.name == "Nexora HVAC Demo"))
+    workspace = _find_demo_workspace(db, settings)
     if workspace:
-        ensure_defaults(db, workspace, True)
+        if workspace.name == LEGACY_DEMO_WORKSPACE_NAME:
+            workspace.name = DEMO_WORKSPACE_NAME
+            if workspace.email == "hello@nexora-demo.local":
+                workspace.email = "service@northstar.example"
+            if workspace.website == "https://example.local":
+                workspace.website = "https://northstar.example"
+            if (workspace.knowledge_summary or "").startswith("Demo HVAC company."):
+                workspace.knowledge_summary = (
+                    "Northstar Heating & Air serves ZIP codes 10001-10020. "
+                    "Hours Mon-Sat 8am-7pm. Emergency requests are prioritized. "
+                    "Never promise a fixed repair price before technician assessment."
+                )
+            db.commit()
+        _mark_demo_ready(db, workspace)
+        db.refresh(workspace)
         return workspace
 
     workspace = Workspace(
-        name="Nexora HVAC Demo",
+        name=DEMO_WORKSPACE_NAME,
         industry="HVAC",
         timezone=settings.default_timezone,
-        phone="+1 555 010 1111",
-        email="hello@nexora-demo.local",
-        website="https://example.local",
+        phone="+1 212 555 0148",
+        email="service@northstar.example",
+        website="https://northstar.example",
         knowledge_summary=(
-            "Demo HVAC company. Service area ZIPs 10001-10020. "
+            "Northstar Heating & Air serves ZIP codes 10001-10020. "
             "Hours Mon-Sat 8am-7pm. Emergency requests are prioritized. "
             "Never promise a fixed repair price before technician assessment."
         ),
@@ -172,7 +213,7 @@ def _seed_demo(db: Session) -> Workspace:
 
     db.commit()
     db.refresh(workspace)
-    ensure_defaults(db, workspace, True)
+    _mark_demo_ready(db, workspace)
     return workspace
 
 
@@ -186,7 +227,7 @@ def _seed_live(db: Session) -> Workspace:
                 User.email == settings.demo_email,
             )
         )
-        if workspace.name == "Nexora HVAC Demo" or demo_user:
+        if workspace.name in {DEMO_WORKSPACE_NAME, LEGACY_DEMO_WORKSPACE_NAME} or demo_user:
             raise RuntimeError(
                 "LIVE mode cannot reuse a demo-seeded database. "
                 "Configure a clean DATABASE_URL or migrate real business data explicitly."
