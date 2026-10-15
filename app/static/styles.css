@@ -592,3 +592,28 @@ dialog::backdrop{background:#02070bc9}
 @media(max-width:700px){
   .activation-grid{grid-template-columns:1fr}
 }
+
+
+.login-demo-mode{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  margin-top:14px;
+  padding:8px 10px;
+  border:1px solid #5b4b22;
+  border-radius:9px;
+  background:#211d11;
+}
+.login-demo-mode strong{
+  display:block;
+  color:#efd77e;
+  font-size:10px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.login-demo-mode small{
+  display:block;
+  margin-top:1px;
+  color:#b9aa7e;
+  font-size:9px;
+}
