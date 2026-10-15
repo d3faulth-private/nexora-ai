@@ -3,7 +3,7 @@
 ## v0.5 Pilot — current validation target
 
 - HVAC-only commercial experience
-- DEMO/LIVE separation
+- Development/production data isolation
 - business onboarding wizard
 - lead qualification and opportunity ranking
 - returning-customer history
