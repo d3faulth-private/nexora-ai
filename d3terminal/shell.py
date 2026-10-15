@@ -131,6 +131,9 @@ class OperatorShell:
                     self.stats.failures += 1
                     self._emit("fail", str(exc))
                     self._emit("info", "Run 'why last' or 'doctor' for diagnostics.")
+                    if len(commands) > 1:
+                        self._emit("warn", "Remaining pasted commands were not executed because the previous command failed.")
+                    break
         return self.shutdown()
 
     def _normalize(self, raw: str) -> str:
