@@ -7,6 +7,56 @@ const el = (selector) => document.querySelector(selector);
 const els = (selector) => Array.from(document.querySelectorAll(selector));
 const csrf = () => el('meta[name="csrf-token"]').content;
 const isDemo = document.body.dataset.mode === "demo";
+const DEMO_PROGRESS_KEY = "nexora.demo.progress.v1";
+const DEMO_STEPS = [
+  ["lead", "Open a revenue opportunity", "Start with a realistic HVAC lead."],
+  ["qualify", "Let Nexora qualify the request", "Send a customer message and watch the AI workforce respond."],
+  ["appointment", "Review an appointment", "See the service window Nexora proposes."],
+  ["takeover", "Take over the conversation", "Switch the lead from Nexora control to human control."],
+  ["return", "Return control to Nexora", "Hand the conversation back without losing context."],
+  ["complete", "Complete the job & see revenue", "Record actual revenue and watch the dashboard update."]
+];
+
+function loadDemoProgress() {
+  if (!isDemo) return {};
+  try {
+    return JSON.parse(localStorage.getItem(DEMO_PROGRESS_KEY) || "{}");
+  } catch (_) {
+    return {};
+  }
+}
+
+function setDemoProgress(key) {
+  if (!isDemo) return;
+  const progress = loadDemoProgress();
+  progress[key] = true;
+  try {
+    localStorage.setItem(DEMO_PROGRESS_KEY, JSON.stringify(progress));
+  } catch (_) {}
+  renderDemoGuide();
+}
+
+function renderDemoGuide() {
+  if (!isDemo) return;
+  const list = el("#demoChecklist");
+  if (!list) return;
+  const progress = loadDemoProgress();
+  if (state && state.metrics && Number(state.metrics.completed_revenue || 0) > 0) {
+    progress.complete = true;
+    try {
+      localStorage.setItem(DEMO_PROGRESS_KEY, JSON.stringify(progress));
+    } catch (_) {}
+  }
+  const complete = DEMO_STEPS.filter(([key]) => progress[key]).length;
+  const label = el("#demoGuideProgress");
+  if (label) label.textContent = complete + " of " + DEMO_STEPS.length + " complete";
+  list.innerHTML = DEMO_STEPS.map(([key, title, note]) =>
+    '<div class="demo-check ' + (progress[key] ? 'done' : '') + '">' +
+      '<div class="demo-check-icon">' + (progress[key] ? '✓' : '·') + '</div>' +
+      '<div><strong>' + esc(title) + '</strong><small>' + esc(note) + '</small></div>' +
+    '</div>'
+  ).join("");
+}
 
 const esc = (value) => String(value == null ? "" : value)
   .replaceAll("&", "&amp;")
@@ -116,7 +166,7 @@ function renderProfile() {
       (p.followup_after_minutes || 120) + ' min · ' +
       (p.followup_max_attempts || 3) + ' attempts</strong></div>';
 
-  el("#setupBanner").classList.toggle("hidden", !!p.onboarding_completed);
+  el("#setupBanner").classList.toggle("hidden", isDemo || !!p.onboarding_completed);
 }
 
 function renderAgents() {
@@ -193,13 +243,28 @@ function renderApprovals() {
 }
 
 function connectorLabel(item) {
+  if (isDemo) {
+    return item.status === "connected" ? "SIMULATED" : "SIMULATION READY";
+  }
   if (item.status === "connected") return "CONNECTED";
   if (item.status === "degraded") return "DEGRADED";
-  return item.mode === "mock" && isDemo ? "NOT ENABLED" : "NOT CONFIGURED";
+  return "NOT CONFIGURED";
 }
 
 function connectorActions(item) {
   const actions = [];
+
+  if (isDemo) {
+    if (item.status === "connected" || item.status === "degraded") {
+      actions.push('<button class="view" data-action="test-connector" data-slug="' + esc(item.slug) + '">Test simulation</button>');
+      actions.push('<button class="view danger-lite" data-action="disconnect-connector" data-slug="' +
+        esc(item.slug) + '">Reset</button>');
+    } else {
+      actions.push('<button class="view" data-action="mock-connector" data-slug="' + esc(item.slug) + '">Enable simulation</button>');
+    }
+    return actions.join("");
+  }
+
   if (item.slug === "google") {
     actions.push('<button class="view" data-action="connect-google">' +
       (item.status === "connected" ? "Reconnect" : "Connect Google") + '</button>');
@@ -218,8 +283,6 @@ function connectorActions(item) {
     actions.push('<button class="view" data-action="test-connector" data-slug="' + esc(item.slug) + '">Test</button>');
     actions.push('<button class="view danger-lite" data-action="disconnect-connector" data-slug="' +
       esc(item.slug) + '">Disconnect</button>');
-  } else if (isDemo) {
-    actions.push('<button class="view" data-action="mock-connector" data-slug="' + esc(item.slug) + '">Enable mock</button>');
   }
   return actions.join("");
 }
@@ -229,7 +292,7 @@ function renderConnectors() {
     '<div class="connector-card">' +
       '<div class="connector-heading"><strong>' + esc(item.name) + '</strong>' +
       '<span class="connector-badge ' + esc(item.status) + '">' + connectorLabel(item) + '</span></div>' +
-      '<span>' + esc(item.mode.toUpperCase()) + ' mode</span>' +
+      '<span>' + (isDemo ? 'Safe simulation · no external account connected' : esc(item.mode.toUpperCase()) + ' mode') + '</span>' +
       '<span class="connector-last">Last check: ' + timeText(item.last_sync_at) + '</span>' +
       '<div class="connector-actions">' + connectorActions(item) + '</div>' +
     '</div>'
@@ -263,6 +326,7 @@ function render() {
   renderApprovals();
   renderConnectors();
   renderActivity();
+  renderDemoGuide();
 }
 
 async function refresh() {
@@ -287,6 +351,7 @@ async function confirmAction(title, message, confirmText) {
 
 async function openLead(id) {
   activeLead = Number(id);
+  setDemoProgress("lead");
   const results = await Promise.all([
     api("/api/leads/" + activeLead),
     api("/api/customers/" + activeLead + "/history")
@@ -294,6 +359,7 @@ async function openLead(id) {
   activeLeadData = results[0];
   const history = results[1];
   const lead = activeLeadData;
+  if ((lead.appointments || []).length) setDemoProgress("appointment");
   const row = state.leads.find((item) => item.id === activeLead);
   const human = !!(row && row.human_control);
 
@@ -475,6 +541,10 @@ el("#sendMessage").addEventListener("click", async () => {
     await run(() => api(endpoint, {method: "POST", body: JSON.stringify(payload)}));
     el("#messageBody").value = "";
     await refresh();
+    const updatedLead = state.leads.find((item) => item.id === activeLead);
+    if (!human && updatedLead && ["qualified", "booked", "completed"].includes(updatedLead.stage)) {
+      setDemoProgress("qualify");
+    }
     await openLead(activeLead);
   } finally {
     button.disabled = false;
@@ -522,6 +592,7 @@ el("#takeoverBtn").addEventListener("click", async () => {
   if (!await confirmAction(nextMode, detail, human ? "Return to Nexora" : "Take over")) return;
   try {
     await run(() => api("/api/leads/" + activeLead + (human ? "/return-to-ai" : "/takeover"), {method: "POST"}));
+    setDemoProgress(human ? "return" : "takeover");
     await refresh();
     await openLead(activeLead);
   } catch (_) {}
@@ -557,6 +628,7 @@ el("#revenueForm").addEventListener("submit", async (event) => {
       method: "POST", body: JSON.stringify({actual_amount: actual})
     }), "Completed revenue recorded.");
     el("#revenueDialog").close();
+    setDemoProgress("complete");
     await refresh();
     await openLead(activeLead);
   } catch (_) {}
@@ -657,6 +729,36 @@ el("#checkAvailabilityBtn").addEventListener("click", async () => {
     el("#availabilityDialog").showModal();
   } catch (_) {}
 });
+
+if (isDemo) {
+  const startButton = el("#demoStartBtn");
+  if (startButton) {
+    startButton.addEventListener("click", async () => {
+      const opportunity = state && state.opportunities && state.opportunities[0];
+      if (opportunity) {
+        await openLead(opportunity.lead_id);
+      } else {
+        document.getElementById("leads").scrollIntoView({behavior: "smooth"});
+      }
+    });
+  }
+
+  const activationButton = el("#activateNexoraBtn");
+  if (activationButton) {
+    activationButton.addEventListener("click", () => el("#activationDialog").showModal());
+  }
+
+  const resetButton = el("#resetDemoGuide");
+  if (resetButton) {
+    resetButton.addEventListener("click", () => {
+      try {
+        localStorage.removeItem(DEMO_PROGRESS_KEY);
+      } catch (_) {}
+      renderDemoGuide();
+      toast("Guided demo reset.", "ok");
+    });
+  }
+}
 
 els("[data-close]").forEach((button) => {
   button.addEventListener("click", () => document.getElementById(button.dataset.close).close());
