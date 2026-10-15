@@ -74,7 +74,7 @@ def require_live_integrations() -> None:
     if settings.demo_mode:
         raise HTTPException(
             403,
-            "Real integrations are disabled in Demo Mode. Activate a Live workspace to connect external accounts.",
+            "External integrations are disabled in this local environment.",
         )
 
 
