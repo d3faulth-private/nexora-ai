@@ -26,7 +26,7 @@ from ..connectors.providers import (
     test_connector,
 )
 from ..models import Appointment, AutomationJob, Conversation, Lead, User
-from ..revenue import opportunity_list, record_booking_attribution, record_completed_revenue, revenue_summary
+from ..revenue import opportunity_list, record_booking_attribution, record_completed_revenue, revenue_details, revenue_summary
 from ..security import csrf_valid
 from ..schemas import (
     HubSpotConnect,
@@ -473,6 +473,12 @@ def external_intake(
 def revenue_report(request: Request, db: Session = Depends(get_db)):
     _, workspace = context(request, db)
     return revenue_summary(db, workspace.id)
+
+
+@router.get("/api/revenue/details")
+def revenue_detail_report(request: Request, db: Session = Depends(get_db)):
+    _, workspace = context(request, db)
+    return revenue_details(db, workspace.id)
 
 
 @router.get("/api/opportunities")
