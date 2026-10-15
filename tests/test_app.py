@@ -794,7 +794,7 @@ def test_customer_ui_is_hvac_first_without_demo_sales_layer():
     assert "Operating rules" in html
     assert "Scheduling & follow-up" in html
     assert "Review & finish" in html
-    assert "HVAC AI WORKFORCE" in html
+    assert "NEXORA AI WORKFORCE" in html\n    assert "HVAC AI WORKFORCE" not in html\n    assert 'id="workspaceMeta"' not in html
 
     forbidden = [
         "Demo Mode",
