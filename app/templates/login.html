@@ -14,10 +14,12 @@
         <div class="eyebrow">AI WORKFORCE PLATFORM</div>
         <h1>Nexora AI</h1>
         <p>Your AI Workforce. Always On.</p>
-        <div class="mode-card {{ 'demo' if demo_mode else 'live' }}">
+        {% if demo_mode %}
+        <div class="login-demo-mode">
           <span class="mode-dot"></span>
-          <div><strong>{{ 'SANDBOX' if demo_mode else 'LIVE' }}</strong><small>v0.5 PILOT</small></div>
+          <div><strong>Demo Mode</strong><small>Explore Nexora with sample HVAC data</small></div>
         </div>
+        {% endif %}
       </div>
     </div>
 
@@ -39,7 +41,7 @@
 
       {% if demo_mode %}
       <div class="demo-note">
-        Sandbox mode is enabled. Sample credentials are prefilled for local evaluation.
+        Sample credentials are prefilled for this guided demo.
       </div>
       {% endif %}
     </form>
