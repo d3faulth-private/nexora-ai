@@ -19,7 +19,7 @@
 
     <div class="mode-card {{ 'demo' if demo_mode else 'live' }}">
       <span class="mode-dot"></span>
-      <div><strong>{{ 'DEMO' if demo_mode else 'LIVE' }}</strong><small>{{ app_env|upper }}</small></div>
+      <div><strong>{{ 'SANDBOX' if demo_mode else 'LIVE' }}</strong><small>{{ app_env|upper }}</small></div>
     </div>
 
     <nav>
@@ -54,7 +54,7 @@
       </div>
       <div class="header-actions">
         <span class="status-pill"><span class="status-dot"></span>System online</span>
-        <span class="status-pill {{ 'demo-pill' if demo_mode else 'live-pill' }}">{{ 'DEMO DATA' if demo_mode else 'LIVE BUSINESS' }}</span>
+        <span class="status-pill {{ 'demo-pill' if demo_mode else 'live-pill' }}">{{ 'SANDBOX DATA' if demo_mode else 'LIVE BUSINESS' }}</span>
         <a class="ghost" href="/docs" target="_blank" rel="noreferrer">API Docs</a>
       </div>
     </header>
@@ -133,7 +133,7 @@
     <section id="approvals">
       <div class="section-head">
         <div><div class="eyebrow">HUMAN CONTROL</div><h2>Approval queue</h2></div>
-        <button id="simulateApproval" class="ghost demo-only">Create demo approval</button>
+        <button id="simulateApproval" class="ghost demo-only">Create sample approval</button>
       </div>
       <div class="panel" id="approvalList"></div>
     </section>
@@ -212,53 +212,130 @@
     </form>
   </dialog>
 
-  <dialog id="onboardingDialog">
-    <form id="onboardingForm" class="dialog-card wide-form">
-      <button type="button" class="close" data-close="onboardingDialog">×</button>
-      <div class="eyebrow">HVAC ONBOARDING</div>
-      <h2>Make Nexora business-specific</h2>
-      <div class="wizard-progress"><span class="active">1 Business</span><span>2 Services</span><span>3 Rules</span><span>4 Automation</span><span>5 Review</span></div>
+  <dialog id="onboardingDialog" class="onboarding-dialog">
+    <form id="onboardingForm" class="onboarding-shell">
+      <header class="onboarding-header">
+        <div>
+          <div class="eyebrow">HVAC ONBOARDING</div>
+          <h2>Make Nexora business-specific</h2>
+          <p class="muted">Set the operating context Nexora needs before handling real customer work.</p>
+        </div>
+        <button type="button" class="close onboarding-close" data-close="onboardingDialog" aria-label="Close onboarding">×</button>
+      </header>
 
-      <div class="wizard-step active" data-step="0">
-        <div class="form-grid">
-          <input name="business_name" placeholder="Business name" required>
-          <input name="industry" value="HVAC" readonly>
-          <input name="timezone" value="America/New_York" placeholder="Timezone">
-          <input name="phone" placeholder="Business phone">
-          <input name="email" type="email" placeholder="Business email">
-          <input name="website" placeholder="Website">
-        </div>
-      </div>
-      <div class="wizard-step" data-step="1">
-        <div class="form-grid single">
-          <textarea name="services" placeholder="Services, one per line"></textarea>
-          <textarea name="service_area" placeholder="Service area / ZIP codes"></textarea>
-        </div>
-      </div>
-      <div class="wizard-step" data-step="2">
-        <div class="form-grid single">
-          <textarea name="business_hours" placeholder="Business hours"></textarea>
-          <textarea name="emergency_policy" placeholder="Emergency handling policy"></textarea>
-          <textarea name="knowledge_summary" placeholder="Business policies, pricing guidance, FAQs, warranties, financing, and anything Nexora should know before replying"></textarea>
-        </div>
-      </div>
-      <div class="wizard-step" data-step="3">
-        <div class="form-grid">
-          <label>Appointment duration<input name="booking_duration_minutes" type="number" min="15" value="60"></label>
-          <label>First follow-up delay<input name="followup_after_minutes" type="number" min="15" value="120"></label>
-          <label>Maximum follow-ups<input name="followup_max_attempts" type="number" min="0" max="10" value="3"></label>
-        </div>
-      </div>
-      <div class="wizard-step" data-step="4">
-        <div id="onboardingReview" class="review-card"></div>
-        <p class="muted">After saving, connect Google to verify real appointment availability and Gmail communication.</p>
+      <div class="wizard-progress" aria-label="Onboarding progress">
+        <span class="active">1 Business</span>
+        <span>2 Services</span>
+        <span>3 Rules</span>
+        <span>4 Automation</span>
+        <span>5 Review</span>
       </div>
 
-      <div class="wizard-actions">
+      <div class="onboarding-body">
+        <section class="wizard-step active" data-step="0">
+          <div class="step-heading">
+            <div>
+              <span class="step-kicker">STEP 1 OF 5</span>
+              <h3>Business details</h3>
+              <p>Tell Nexora who the business is and how customers reach it.</p>
+            </div>
+          </div>
+          <div class="form-grid onboarding-grid">
+            <label>Business name<input name="business_name" placeholder="D3 HVAC Test" required></label>
+            <label>Industry<input name="industry" value="HVAC" readonly></label>
+            <label>Timezone<input name="timezone" value="America/New_York" placeholder="America/New_York"></label>
+            <label>Business phone<input name="phone" placeholder="555-0100"></label>
+            <label>Business email<input name="email" type="email" placeholder="office@example.com"></label>
+            <label>Website<input name="website" placeholder="https://example.com"></label>
+          </div>
+        </section>
+
+        <section class="wizard-step" data-step="1">
+          <div class="step-heading">
+            <div>
+              <span class="step-kicker">STEP 2 OF 5</span>
+              <h3>Services & coverage</h3>
+              <p>Define what the company offers and where technicians can serve customers.</p>
+            </div>
+          </div>
+          <div class="form-grid single">
+            <label>Services
+              <textarea name="services" placeholder="AC Repair&#10;Furnace Repair&#10;Heat Pumps&#10;HVAC Maintenance"></textarea>
+              <small>Enter one service per line.</small>
+            </label>
+            <label>Service area
+              <textarea name="service_area" placeholder="ZIP codes, cities, counties, or service boundaries"></textarea>
+            </label>
+          </div>
+        </section>
+
+        <section class="wizard-step" data-step="2">
+          <div class="step-heading">
+            <div>
+              <span class="step-kicker">STEP 3 OF 5</span>
+              <h3>Operating rules</h3>
+              <p>Give Nexora the business rules it must follow when talking to customers.</p>
+            </div>
+          </div>
+          <div class="form-grid single">
+            <label>Business hours
+              <textarea name="business_hours" placeholder="Mon-Sat 8am-7pm"></textarea>
+            </label>
+            <label>Emergency policy
+              <textarea name="emergency_policy" placeholder="When should Nexora escalate immediately to a human?"></textarea>
+            </label>
+            <label>Business knowledge, policies & pricing guidance
+              <textarea class="knowledge-field" name="knowledge_summary" placeholder="FAQs, warranties, financing, pricing rules, service policies, and anything Nexora should know before replying"></textarea>
+              <small>Use policies and guidance—not secrets or private credentials.</small>
+            </label>
+          </div>
+        </section>
+
+        <section class="wizard-step" data-step="3">
+          <div class="step-heading">
+            <div>
+              <span class="step-kicker">STEP 4 OF 5</span>
+              <h3>Scheduling & follow-up</h3>
+              <p>Control appointment length and how Nexora re-engages open leads.</p>
+            </div>
+          </div>
+          <div class="form-grid onboarding-grid">
+            <label>Appointment duration
+              <div class="input-with-suffix"><input name="booking_duration_minutes" type="number" min="15" value="60"><span>minutes</span></div>
+            </label>
+            <label>First follow-up delay
+              <div class="input-with-suffix"><input name="followup_after_minutes" type="number" min="15" value="120"><span>minutes</span></div>
+            </label>
+            <label>Maximum follow-ups
+              <div class="input-with-suffix"><input name="followup_max_attempts" type="number" min="0" max="10" value="3"><span>attempts</span></div>
+            </label>
+          </div>
+        </section>
+
+        <section class="wizard-step" data-step="4">
+          <div class="step-heading">
+            <div>
+              <span class="step-kicker">STEP 5 OF 5</span>
+              <h3>Review & activate</h3>
+              <p>Review the operating profile before Nexora marks business setup complete.</p>
+            </div>
+          </div>
+          <div id="onboardingReview" class="review-card"></div>
+          <div class="review-note">
+            <strong>Next:</strong>
+            <span>Connect Google to verify real appointment availability and Gmail communication.</span>
+          </div>
+        </section>
+      </div>
+
+      <footer class="wizard-actions onboarding-footer">
         <button type="button" id="wizardBack" class="ghost">Back</button>
-        <button type="button" id="wizardNext">Next</button>
-        <button type="submit" id="wizardSave" class="hidden">Save & finish</button>
-      </div>
+        <div class="wizard-actions-right">
+          <span id="wizardStepLabel" class="wizard-step-label">Step 1 of 5</span>
+          <button type="button" id="wizardNext">Next</button>
+          <button type="submit" id="wizardSave" class="hidden">Save & finish</button>
+        </div>
+      </footer>
     </form>
   </dialog>
 
