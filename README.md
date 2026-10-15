@@ -20,7 +20,7 @@ lead arrives
 
 ## Environment and data safety
 
-Nexora's customer UI is HVAC-first and does not expose development/test environment branding. Internally, `DEMO_MODE` can seed local HVAC sample data and mock connectors for development. Production uses a clean workspace with no sample leads or mock connectors.
+Nexora's customer UI is HVAC-first and does not expose development/test environment branding. Internally, `DEMO_MODE` seeds a realistic local HVAC operating day so leads, conversations, appointments, approvals, automation, revenue, and activity can be tested together. Production uses a clean workspace with no seeded customers, appointments, or revenue.
 
 For production set `DEMO_MODE=false`, strong bootstrap owner credentials, a strong `APP_SECRET`, and `CONNECTOR_ENCRYPTION_KEY`. Production startup rejects unsafe defaults.
 
@@ -45,13 +45,33 @@ admin@nexora.local
 nexora-demo
 ```
 
+### Local operational dataset
+
+A fresh local workspace starts with 12 realistic HVAC leads, 8 conversations, 4 appointments, 2 completed jobs, 2 pending follow-ups, 1 approval, and a populated activity trail. The baseline revenue state is:
+
+```text
+Booked pipeline      $9,250
+Completed revenue    $7,800
+Recovered revenue    $5,000
+Open opportunity    $14,470
+```
+
+If local testing changes the dataset, stop the managed server and restore it from D3Terminal:
+
+```text
+workspace reset
+workspace reset --confirm
+```
+
+The reset command is blocked outside local development/test mode and never seeds production customer workspaces.
+
 ## D3FAULTH operator console
 
 ```text
 d3faulth@nexora [DEVE]:~$
 ```
 
-Useful commands: `status`, `doctor`, `revenue`, `opportunities`, `leads`, `agents`, `jobs`, `connectors`, `why last`, `logs --tail 50`, `debug last`, `serve`, `stop`, `restart`, `open`, `history`, and `exit`.
+Useful commands: `status`, `doctor`, `revenue`, `opportunities`, `leads`, `agents`, `jobs`, `connectors`, `workspace reset`, `why last`, `logs --tail 50`, `debug last`, `serve`, `stop`, `restart`, `open`, `history`, and `exit`.
 
 `serve` waits for `/health` before reporting success and captures managed Uvicorn logs for troubleshooting.
 
