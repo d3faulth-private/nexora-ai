@@ -774,3 +774,34 @@ def test_live_mode_refuses_demo_seeded_database(monkeypatch):
 
         with pytest.raises(RuntimeError, match="cannot reuse a demo-seeded database"):
             seed_module.seed_workspace(db)
+
+
+
+def test_onboarding_modal_is_viewport_safe_and_uses_sandbox_wording():
+    from pathlib import Path
+
+    html = Path("app/templates/index.html").read_text(encoding="utf-8")
+    login = Path("app/templates/login.html").read_text(encoding="utf-8")
+    css = Path("app/static/styles.css").read_text(encoding="utf-8")
+    js = Path("app/static/app.js").read_text(encoding="utf-8")
+
+    assert 'class="onboarding-dialog"' in html
+    assert 'class="onboarding-header"' in html
+    assert 'class="onboarding-body"' in html
+    assert 'class="wizard-actions onboarding-footer"' in html
+    assert "Business details" in html
+    assert "Services & coverage" in html
+    assert "Operating rules" in html
+    assert "Scheduling & follow-up" in html
+    assert "Review & activate" in html
+
+    assert "{{ 'SANDBOX' if demo_mode else 'LIVE' }}" in html
+    assert "SANDBOX DATA" in html
+    assert "{{ 'SANDBOX' if demo_mode else 'LIVE' }}" in login
+    assert "Local demo mode is enabled" not in login
+
+    assert "max-height:calc(100vh - 28px)" in css
+    assert "overflow-y:auto" in css
+    assert "grid-template-rows:auto auto minmax(0,1fr) auto" in css
+    assert 'el("#wizardStepLabel").textContent' in js
+    assert "validateWizardStep()" in js
