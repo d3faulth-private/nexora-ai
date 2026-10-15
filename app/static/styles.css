@@ -217,3 +217,188 @@ dialog::backdrop{background:#02070bc9}
 .result{white-space:pre-wrap}
 @media(max-width:900px){.lead-layout{grid-template-columns:1fr}.history-panel{border-left:0;border-top:1px solid var(--line);padding:14px 0 0}.conversation-row,.appointment-row{grid-template-columns:1fr 1fr}.wizard-progress{grid-template-columns:1fr}.wizard-progress span{display:none}.wizard-progress span.active{display:block}.setup-banner{align-items:flex-start;flex-direction:column}}
 @media(max-width:600px){.conversation-row,.appointment-row{grid-template-columns:1fr}.toast-region{right:14px;bottom:14px;width:calc(100vw - 28px)}}
+
+
+/* Onboarding modal repair: viewport-safe at high browser zoom */
+#onboardingDialog{
+  width:min(980px,calc(100vw - 28px));
+  max-width:980px;
+  max-height:calc(100vh - 28px);
+  margin:auto;
+  overflow:hidden;
+  border-radius:16px;
+}
+#onboardingDialog[open]{display:block}
+#onboardingDialog .onboarding-shell{
+  width:100%;
+  max-height:calc(100vh - 28px);
+  display:grid;
+  grid-template-rows:auto auto minmax(0,1fr) auto;
+  overflow:hidden;
+  background:#0c1720;
+}
+.onboarding-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:20px;
+  padding:24px 28px 14px;
+  border-bottom:1px solid var(--line);
+  background:#0c1720;
+}
+.onboarding-header h2{margin:4px 0 3px}
+.onboarding-header p{max-width:680px}
+.onboarding-close{
+  position:static;
+  flex:0 0 auto;
+  margin-top:-4px;
+}
+#onboardingDialog .wizard-progress{
+  margin:0;
+  padding:12px 28px 14px;
+  border-bottom:1px solid var(--line);
+  background:#0b151d;
+}
+#onboardingDialog .onboarding-body{
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:22px 28px 28px;
+  scrollbar-gutter:stable;
+}
+#onboardingDialog .wizard-step{
+  display:none;
+  min-height:0;
+}
+#onboardingDialog .wizard-step.active{display:block}
+.step-heading{
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  align-items:flex-start;
+  margin-bottom:18px;
+}
+.step-heading h3{
+  margin:4px 0;
+  font-size:18px;
+}
+.step-heading p{
+  color:var(--muted);
+  max-width:680px;
+  font-size:12px;
+}
+.step-kicker{
+  color:var(--green);
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.14em;
+}
+#onboardingDialog .onboarding-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+#onboardingDialog .form-grid{
+  margin:0;
+  gap:14px;
+}
+#onboardingDialog .form-grid label{
+  min-width:0;
+  display:grid;
+  gap:7px;
+  color:#afc0ca;
+  font-size:11px;
+  font-weight:650;
+}
+#onboardingDialog .form-grid label small{
+  color:var(--muted);
+  font-weight:400;
+  line-height:1.4;
+}
+#onboardingDialog textarea{
+  resize:vertical;
+  min-height:92px;
+}
+#onboardingDialog .knowledge-field{min-height:132px}
+.input-with-suffix{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  background:#08141c;
+}
+.input-with-suffix input{
+  border:0;
+  border-radius:0;
+}
+.input-with-suffix span{
+  padding:0 12px;
+  color:var(--muted);
+  font-size:10px;
+  white-space:nowrap;
+}
+#onboardingDialog .review-card{
+  padding:18px;
+}
+.review-note{
+  display:flex;
+  gap:8px;
+  align-items:flex-start;
+  margin-top:12px;
+  padding:12px 14px;
+  border:1px solid #245943;
+  border-radius:9px;
+  background:#0d211a;
+  color:#b9cfc6;
+  font-size:12px;
+}
+.review-note strong{color:var(--green)}
+#onboardingDialog .onboarding-footer{
+  margin:0;
+  padding:14px 28px;
+  min-height:68px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  border-top:1px solid var(--line);
+  background:#0b151d;
+}
+.wizard-actions-right{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  min-width:0;
+}
+.wizard-step-label{
+  color:var(--muted);
+  font-size:10px;
+  white-space:nowrap;
+}
+#onboardingDialog button:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+@media(max-width:760px){
+  #onboardingDialog{
+    width:calc(100vw - 16px);
+    max-height:calc(100vh - 16px);
+  }
+  #onboardingDialog .onboarding-shell{max-height:calc(100vh - 16px)}
+  .onboarding-header{padding:20px 18px 12px}
+  #onboardingDialog .wizard-progress{padding:10px 18px 12px}
+  #onboardingDialog .onboarding-body{padding:18px}
+  #onboardingDialog .onboarding-grid{grid-template-columns:1fr}
+  #onboardingDialog .onboarding-footer{padding:12px 18px}
+  .wizard-step-label{display:none}
+}
+
+@media(max-height:700px){
+  .onboarding-header{padding-top:16px;padding-bottom:10px}
+  .onboarding-header p{display:none}
+  #onboardingDialog .wizard-progress{padding-top:8px;padding-bottom:9px}
+  #onboardingDialog .onboarding-body{padding-top:16px;padding-bottom:18px}
+  #onboardingDialog .onboarding-footer{min-height:58px;padding-top:9px;padding-bottom:9px}
+}
