@@ -80,6 +80,10 @@ def record_completed_revenue(
         existing.amount = amount
         existing.source = source
         existing.note = "Completed revenue updated."
+        recovered = _existing_event(db, workspace_id, lead.id, "recovered")
+        if recovered:
+            recovered.amount = amount
+            recovered.note = "Completed revenue recovered after Nexora follow-up activity."
         return existing
 
     event = RevenueEvent(
@@ -92,6 +96,12 @@ def record_completed_revenue(
         note="Completed job revenue attributed to this lead.",
     )
     db.add(event)
+
+    recovered = _existing_event(db, workspace_id, lead.id, "recovered")
+    if recovered:
+        recovered.amount = amount
+        recovered.note = "Completed revenue recovered after Nexora follow-up activity."
+
     return event
 
 
@@ -103,9 +113,12 @@ def revenue_summary(db: Session, workspace_id: int) -> dict:
         )
     )
     booked = db.scalar(
-        select(func.coalesce(func.sum(RevenueEvent.amount), 0)).where(
+        select(func.coalesce(func.sum(RevenueEvent.amount), 0))
+        .join(Lead, RevenueEvent.lead_id == Lead.id)
+        .where(
             RevenueEvent.workspace_id == workspace_id,
             RevenueEvent.event_type == "booked",
+            Lead.stage == "booked",
         )
     )
     completed = db.scalar(
@@ -115,9 +128,12 @@ def revenue_summary(db: Session, workspace_id: int) -> dict:
         )
     )
     recovered = db.scalar(
-        select(func.coalesce(func.sum(RevenueEvent.amount), 0)).where(
+        select(func.coalesce(func.sum(RevenueEvent.amount), 0))
+        .join(Lead, RevenueEvent.lead_id == Lead.id)
+        .where(
             RevenueEvent.workspace_id == workspace_id,
             RevenueEvent.event_type == "recovered",
+            Lead.stage == "completed",
         )
     )
     open_opportunity = db.scalar(
@@ -133,6 +149,67 @@ def revenue_summary(db: Session, workspace_id: int) -> dict:
         "completed_revenue": float(completed or 0),
         "recovered_revenue": float(recovered or 0),
         "open_opportunity": float(open_opportunity or 0),
+    }
+
+
+def _event_details(
+    db: Session,
+    workspace_id: int,
+    event_type: str,
+    *,
+    lead_stage: str | None = None,
+) -> list[dict]:
+    query = (
+        select(RevenueEvent, Lead)
+        .outerjoin(Lead, RevenueEvent.lead_id == Lead.id)
+        .where(
+            RevenueEvent.workspace_id == workspace_id,
+            RevenueEvent.event_type == event_type,
+        )
+        .order_by(RevenueEvent.created_at.desc())
+    )
+    if lead_stage is not None:
+        query = query.where(Lead.stage == lead_stage)
+
+    rows = db.execute(query).all()
+    return [
+        {
+            "event_id": event.id,
+            "lead_id": event.lead_id,
+            "name": lead.name if lead else "Unlinked revenue",
+            "issue": lead.issue if lead else "",
+            "stage": lead.stage if lead else "",
+            "amount": float(event.amount or 0),
+            "attribution": event.attribution,
+            "source": event.source,
+            "note": event.note,
+            "created_at": event.created_at.isoformat() if event.created_at else None,
+        }
+        for event, lead in rows
+    ]
+
+
+def revenue_details(db: Session, workspace_id: int) -> dict:
+    summary = revenue_summary(db, workspace_id)
+    opportunities = opportunity_list(db, workspace_id, limit=1000)
+    return {
+        "summary": summary,
+        "booked_pipeline": {
+            "total": summary["booked_pipeline"],
+            "items": _event_details(db, workspace_id, "booked", lead_stage="booked"),
+        },
+        "completed_revenue": {
+            "total": summary["completed_revenue"],
+            "items": _event_details(db, workspace_id, "completed"),
+        },
+        "recovered_revenue": {
+            "total": summary["recovered_revenue"],
+            "items": _event_details(db, workspace_id, "recovered", lead_stage="completed"),
+        },
+        "open_opportunity": {
+            "total": summary["open_opportunity"],
+            "items": opportunities,
+        },
     }
 
 
