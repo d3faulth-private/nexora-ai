@@ -70,6 +70,14 @@ def context(request: Request, db: Session):
     return user, workspace
 
 
+def require_live_integrations() -> None:
+    if settings.demo_mode:
+        raise HTTPException(
+            403,
+            "Real integrations are disabled in Demo Mode. Activate a Live workspace to connect external accounts.",
+        )
+
+
 @router.get("/api/onboarding")
 def onboarding_state(request: Request, db: Session = Depends(get_db)):
     _, workspace = context(request, db)
@@ -162,6 +170,7 @@ def human_message(
 @router.get("/api/connectors/google/start")
 def google_start(request: Request, db: Session = Depends(get_db)):
     _, workspace = context(request, db)
+    require_live_integrations()
     state = secrets.token_urlsafe(32)
     request.session["google_oauth_state"] = state
     request.session["google_oauth_workspace_id"] = workspace.id
@@ -180,6 +189,7 @@ def google_callback(
     db: Session = Depends(get_db),
 ):
     _, workspace = context(request, db)
+    require_live_integrations()
     expected = request.session.pop("google_oauth_state", None)
     expected_workspace = request.session.pop("google_oauth_workspace_id", None)
 
@@ -215,6 +225,7 @@ def hubspot_connect(
     db: Session = Depends(get_db),
 ):
     _, workspace = context(request, db)
+    require_live_integrations()
     try:
         set_secret(
             db,
@@ -253,6 +264,7 @@ def webhook_connect(
     db: Session = Depends(get_db),
 ):
     _, workspace = context(request, db)
+    require_live_integrations()
     try:
         set_secret(
             db,
@@ -293,6 +305,7 @@ def connector_mock(slug: str, request: Request, db: Session = Depends(get_db)):
 @router.post("/api/connectors/gmail/sync")
 def gmail_sync(request: Request, db: Session = Depends(get_db)):
     _, workspace = context(request, db)
+    require_live_integrations()
     try:
         return sync_workspace_gmail(db, workspace, max_results=20)
     except Exception as exc:
