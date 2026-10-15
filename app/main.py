@@ -571,7 +571,7 @@ def update_connector(
         raise HTTPException(404, "Connector not found")
     updates = payload.model_dump(exclude_none=True)
     if settings.demo_mode and updates.get("mode") not in {None, "mock"}:
-        raise HTTPException(403, "Demo Mode connectors must remain simulated.")
+        raise HTTPException(403, "Local connectors cannot switch to external mode.")
     for key, value in updates.items():
         setattr(item, key, value)
     item.last_sync_at = datetime.now(timezone.utc)
