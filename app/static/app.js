@@ -359,6 +359,7 @@ function setWizardStep(step) {
   el("#wizardBack").disabled = wizardStep === 0;
   el("#wizardNext").classList.toggle("hidden", wizardStep === 4);
   el("#wizardSave").classList.toggle("hidden", wizardStep !== 4);
+  el("#wizardStepLabel").textContent = "Step " + (wizardStep + 1) + " of 5";
 
   if (wizardStep === 4) {
     const data = Object.fromEntries(new FormData(el("#onboardingForm")).entries());
@@ -369,6 +370,20 @@ function setWizardStep(step) {
       '<p>' + esc(data.business_hours || "No business hours entered") + '</p>' +
       '<p>' + esc(data.knowledge_summary || "No additional policies or FAQs entered") + '</p>';
   }
+}
+
+function validateWizardStep() {
+  const step = el('.wizard-step[data-step="' + wizardStep + '"]');
+  if (!step) return true;
+  const required = Array.from(step.querySelectorAll("[required]"));
+  for (const field of required) {
+    if (!field.checkValidity()) {
+      field.reportValidity();
+      field.focus();
+      return false;
+    }
+  }
+  return true;
 }
 
 async function openOnboarding() {
@@ -562,7 +577,9 @@ el("#markLostBtn").addEventListener("click", async () => {
 el("#configureBusiness").addEventListener("click", openOnboarding);
 el("#setupBannerBtn").addEventListener("click", openOnboarding);
 el("#wizardBack").addEventListener("click", () => setWizardStep(wizardStep - 1));
-el("#wizardNext").addEventListener("click", () => setWizardStep(wizardStep + 1));
+el("#wizardNext").addEventListener("click", () => {
+  if (validateWizardStep()) setWizardStep(wizardStep + 1);
+});
 
 el("#onboardingForm").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -623,7 +640,7 @@ el("#simulateApproval").addEventListener("click", async () => {
         reason: "Demo sensitive action requiring owner approval.",
         payload: {lead_id: state.leads.length ? state.leads[0].id : null}
       })
-    }), "Demo approval created.");
+    }), "Sample approval created.");
     await refresh();
   } catch (_) {}
 });
