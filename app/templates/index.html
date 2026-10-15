@@ -183,35 +183,39 @@
     </section>
   </main>
 
-  <dialog id="leadDialog">
+  <dialog id="leadDialog" class="lead-dialog">
     <div class="dialog-card lead-dialog-card">
-      <button class="close" type="button" data-close="leadDialog">×</button>
-      <div class="eyebrow">LEAD WORKSPACE</div>
-      <h2 id="dialogTitle"></h2>
-      <div id="leadSummary" class="lead-summary"></div>
-      <div id="leadStageLine" class="stage-line"></div>
-      <div class="lead-actions">
-        <button type="button" id="takeoverBtn" class="ghost"></button>
-        <button type="button" id="bookBtn" class="ghost hidden">Confirm appointment</button>
-        <button type="button" id="completeJobBtn" class="ghost hidden">Complete job</button>
-        <button type="button" id="markLostBtn" class="ghost danger-lite">Mark lost</button>
-      </div>
-      <div class="lead-layout">
-        <div>
-          <h3>Conversation</h3>
-          <div id="conversation" class="conversation"></div>
-          <div class="message-compose">
-            <textarea id="messageBody" placeholder="Enter a customer message..."></textarea>
-            <button type="button" id="sendMessage">Send</button>
-          </div>
-          <div id="conversationModeNote" class="hint"></div>
+      <header class="lead-dialog-header">
+        <button class="close" type="button" data-close="leadDialog" aria-label="Close lead workspace">×</button>
+        <div class="eyebrow">LEAD WORKSPACE</div>
+        <h2 id="dialogTitle"></h2>
+        <div id="leadSummary" class="lead-summary"></div>
+        <div id="leadStageLine" class="stage-line"></div>
+        <div class="lead-actions">
+          <button type="button" id="takeoverBtn" class="ghost"></button>
+          <button type="button" id="bookBtn" class="ghost hidden">Confirm appointment</button>
+          <button type="button" id="completeJobBtn" class="ghost hidden">Complete job</button>
+          <button type="button" id="markLostBtn" class="ghost danger-lite">Mark lost</button>
         </div>
-        <aside class="history-panel">
-          <h3>Customer history</h3>
-          <div id="customerHistory" class="history-list"></div>
-          <h3>Appointments</h3>
-          <div id="leadAppointments" class="history-list"></div>
-        </aside>
+      </header>
+      <div class="lead-dialog-body">
+        <div class="lead-layout">
+          <section class="conversation-panel">
+            <h3>Conversation</h3>
+            <div id="conversation" class="conversation"></div>
+            <div class="message-compose">
+              <textarea id="messageBody" placeholder="Enter a customer message..."></textarea>
+              <button type="button" id="sendMessage">Send</button>
+            </div>
+            <div id="conversationModeNote" class="hint"></div>
+          </section>
+          <aside class="history-panel">
+            <h3>Customer history</h3>
+            <div id="customerHistory" class="history-list"></div>
+            <h3>Appointments</h3>
+            <div id="leadAppointments" class="history-list"></div>
+          </aside>
+        </div>
       </div>
     </div>
   </dialog>
