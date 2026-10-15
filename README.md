@@ -18,11 +18,11 @@ lead arrives
   -> dashboard shows pipeline, completed and recovered revenue separately
 ```
 
-## Demo and live modes
+## Environment and data safety
 
-DEMO seeds sample HVAC data and allows mock connectors. LIVE creates a clean HVAC workspace with no sample leads and no mock connectors.
+Nexora's customer UI is HVAC-first and does not expose development/test environment branding. Internally, `DEMO_MODE` can seed local HVAC sample data and mock connectors for development. Production uses a clean workspace with no sample leads or mock connectors.
 
-For LIVE set `DEMO_MODE=false`, strong bootstrap owner credentials, a strong `APP_SECRET`, and `CONNECTOR_ENCRYPTION_KEY`. Production startup rejects unsafe defaults.
+For production set `DEMO_MODE=false`, strong bootstrap owner credentials, a strong `APP_SECRET`, and `CONNECTOR_ENCRYPTION_KEY`. Production startup rejects unsafe defaults.
 
 ## Install
 
@@ -38,7 +38,7 @@ python scripts/migrate.py
 nexora
 ```
 
-Default demo login:
+Default local login:
 
 ```text
 admin@nexora.local
