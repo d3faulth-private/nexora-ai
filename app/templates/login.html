@@ -16,7 +16,7 @@
         <p>Your AI Workforce. Always On.</p>
         <div class="mode-card {{ 'demo' if demo_mode else 'live' }}">
           <span class="mode-dot"></span>
-          <div><strong>{{ 'DEMO' if demo_mode else 'LIVE' }}</strong><small>v0.5 PILOT</small></div>
+          <div><strong>{{ 'SANDBOX' if demo_mode else 'LIVE' }}</strong><small>v0.5 PILOT</small></div>
         </div>
       </div>
     </div>
@@ -39,7 +39,7 @@
 
       {% if demo_mode %}
       <div class="demo-note">
-        Local demo mode is enabled. The credentials above are seeded from your environment.
+        Sandbox mode is enabled. Sample credentials are prefilled for local evaluation.
       </div>
       {% endif %}
     </form>
