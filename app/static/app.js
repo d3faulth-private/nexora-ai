@@ -415,7 +415,15 @@ async function openLead(id) {
   el("#bookBtn").classList.toggle("hidden", !proposed);
   el("#completeJobBtn").classList.toggle("hidden", lead.stage !== "booked");
   el("#markLostBtn").classList.toggle("hidden", ["lost", "completed"].includes(lead.stage));
-  el("#leadDialog").showModal();
+  const leadDialog = el("#leadDialog");
+  const wasOpen = leadDialog.open;
+  if (!wasOpen) leadDialog.showModal();
+  if (!wasOpen) {
+    requestAnimationFrame(() => {
+      const body = leadDialog.querySelector(".lead-dialog-body");
+      if (body) body.scrollTop = 0;
+    });
+  }
 }
 
 function setWizardStep(step) {
@@ -472,7 +480,12 @@ async function openOnboarding() {
   form.elements.followup_after_minutes.value = p.followup_after_minutes || 120;
   form.elements.followup_max_attempts.value = p.followup_max_attempts || 3;
   setWizardStep(0);
-  el("#onboardingDialog").showModal();
+  const dialog = el("#onboardingDialog");
+  if (!dialog.open) dialog.showModal();
+  requestAnimationFrame(() => {
+    const body = dialog.querySelector(".onboarding-body");
+    if (body) body.scrollTop = 0;
+  });
 }
 
 document.addEventListener("click", async (event) => {
