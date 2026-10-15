@@ -777,7 +777,7 @@ def test_live_mode_refuses_demo_seeded_database(monkeypatch):
 
 
 
-def test_onboarding_modal_is_viewport_safe_and_demo_ui_is_customer_facing():
+def test_customer_ui_is_hvac_first_without_demo_sales_layer():
     from pathlib import Path
 
     html = Path("app/templates/index.html").read_text(encoding="utf-8")
@@ -793,29 +793,35 @@ def test_onboarding_modal_is_viewport_safe_and_demo_ui_is_customer_facing():
     assert "Services & coverage" in html
     assert "Operating rules" in html
     assert "Scheduling & follow-up" in html
-    assert "Review & activate" in html
+    assert "Review & finish" in html
+    assert "HVAC AI WORKFORCE" in html
 
-    assert "Demo Mode" in html
-    assert "TRY NEXORA" in html
-    assert "Activate Nexora" in html
-    assert "Guided demo" in html
-    assert "Demo Mode" in login
-    assert "SANDBOX" not in html
-    assert "SANDBOX" not in login
-    assert "app_env|upper" not in html
-    assert "DEVELOPMENT" not in html
+    forbidden = [
+        "Demo Mode",
+        "TRY NEXORA",
+        "Activate Nexora",
+        "Guided demo",
+        "SANDBOX",
+        "DEVELOPMENT",
+        "LIVE BUSINESS",
+        "Review & activate",
+    ]
+    for text in forbidden:
+        assert text not in html
+        assert text not in login
+
+    assert "DEMO_STEPS" not in js
+    assert "demoStartBtn" not in js
+    assert "activateNexoraBtn" not in js
+    assert "Safe simulation" not in js
 
     assert "max-height:calc(100vh - 28px)" in css
     assert "overflow-y:auto" in css
     assert "grid-template-rows:auto auto minmax(0,1fr) auto" in css
     assert 'el("#wizardStepLabel").textContent' in js
     assert "validateWizardStep()" in js
-    assert "DEMO_STEPS" in js
-    assert "Safe simulation · no external account connected" in js
 
-
-
-def test_demo_seed_is_realistic_ready_and_simulated(monkeypatch):
+def test_internal_seed_uses_neutral_hvac_workspace_and_mock_connectors(monkeypatch):
     from types import SimpleNamespace
 
     from sqlalchemy import create_engine, func, select
@@ -838,15 +844,15 @@ def test_demo_seed_is_realistic_ready_and_simulated(monkeypatch):
 
     with Session(engine) as db:
         workspace = seed_module.seed_workspace(db)
-        assert workspace.name == "Northstar Heating & Air"
-        assert workspace.email == "service@northstar.example"
-        assert workspace.website == "https://northstar.example"
+        assert workspace.name == "Nexora HVAC"
+        assert workspace.email == "office@nexora.local"
+        assert workspace.website == ""
 
         profile = db.scalar(
             select(WorkspaceProfile).where(WorkspaceProfile.workspace_id == workspace.id)
         )
         assert profile is not None
-        assert profile.onboarding_completed is True
+        assert profile.onboarding_completed is False
 
         assert int(db.scalar(select(func.count(Lead.id))) or 0) == 3
         assert set(db.scalars(select(Connector.mode))) == {"mock"}
@@ -858,14 +864,14 @@ def test_demo_mode_blocks_real_connector_credentials():
 
         google = client.get("/api/connectors/google/start")
         assert google.status_code == 403
-        assert "Demo Mode" in google.json()["detail"]
+        assert "local environment" in google.json()["detail"]
 
         hubspot = client.post(
             "/api/connectors/hubspot/connect",
             json={"private_app_token": "demo-token-12345"},
         )
         assert hubspot.status_code == 403
-        assert "Demo Mode" in hubspot.json()["detail"]
+        assert "local environment" in hubspot.json()["detail"]
 
         webhook = client.post(
             "/api/connectors/webhook/connect",
@@ -875,14 +881,14 @@ def test_demo_mode_blocks_real_connector_credentials():
             },
         )
         assert webhook.status_code == 403
-        assert "Demo Mode" in webhook.json()["detail"]
+        assert "local environment" in webhook.json()["detail"]
 
         patch = client.patch(
             "/api/connectors/google",
             json={"mode": "real", "status": "connected"},
         )
         assert patch.status_code == 403
-        assert "simulated" in patch.json()["detail"].lower()
+        assert "external mode" in patch.json()["detail"].lower()
 
 
 
@@ -899,7 +905,7 @@ def test_final_modal_system_is_viewport_safe():
     assert 'class="conversation-panel"' in html
 
     assert ".hidden{display:none!important}" in css
-    assert 'body[data-mode="demo"] .setup-banner{display:none!important}' in css
+    assert 'body[data-mode="demo"] .setup-banner' not in css
     assert "dialog:not(#onboardingDialog)" in css
     assert "max-height:calc(100dvh - 24px)" in css
     assert "#leadDialog" in css
