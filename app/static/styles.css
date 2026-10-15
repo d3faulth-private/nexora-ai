@@ -574,3 +574,130 @@ dialog:not(#onboardingDialog) .close{
   }
   .message-compose textarea{min-height:58px}
 }
+
+
+/* Revenue intelligence */
+.metric-action{
+  width:100%;
+  min-width:0;
+  appearance:none;
+  text-align:left;
+  color:var(--text);
+  font-weight:400;
+  cursor:pointer;
+  transition:border-color .16s ease,background .16s ease,transform .16s ease;
+}
+.metric-action:hover,
+.metric-action:focus-visible{
+  background:#10202b;
+  border-color:#35604f;
+  outline:none;
+}
+.metric-action:active{transform:translateY(1px)}
+.metric-action em{
+  display:block;
+  margin-top:9px;
+  color:var(--green);
+  font-size:9px;
+  font-style:normal;
+  font-weight:800;
+  letter-spacing:.04em;
+}
+.revenue-detail-dialog{
+  width:min(920px,calc(100vw - 24px))!important;
+  max-width:920px!important;
+}
+.revenue-detail-card{
+  padding:0!important;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  overflow:hidden!important;
+}
+.revenue-detail-header{
+  position:relative;
+  padding:22px 26px 16px;
+  border-bottom:1px solid var(--line);
+  background:#0c1720;
+}
+.revenue-detail-header h2{
+  margin:4px 42px 0 0;
+}
+.revenue-detail-header .close{
+  position:absolute;
+  right:14px;
+  top:10px;
+}
+.revenue-detail-total{
+  margin-top:8px;
+  font-size:32px;
+  line-height:1.1;
+  font-weight:850;
+  letter-spacing:-.03em;
+}
+.revenue-detail-header p{
+  margin-top:7px;
+  max-width:700px;
+  line-height:1.45;
+}
+.revenue-detail-body{
+  min-height:0;
+  max-height:62vh;
+  max-height:62dvh;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-gutter:stable;
+}
+.revenue-detail-list{min-width:0}
+.revenue-detail-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 125px auto;
+  gap:16px;
+  align-items:center;
+  padding:15px 26px;
+  border-bottom:1px solid #182a36;
+}
+.revenue-detail-row:last-child{border-bottom:0}
+.revenue-detail-main{
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.revenue-detail-main strong{
+  display:block;
+  font-size:13px;
+}
+.revenue-detail-main span{
+  display:block;
+  margin-top:2px;
+  color:#b7c6cf;
+  font-size:11px;
+}
+.revenue-detail-main small{
+  display:block;
+  margin-top:4px;
+  color:var(--muted);
+  font-size:9px;
+  letter-spacing:.05em;
+}
+.revenue-detail-main p{
+  margin-top:6px;
+  color:#9db0bc;
+  font-size:10px;
+}
+.revenue-detail-amount{
+  text-align:right;
+  font-size:18px;
+  font-weight:850;
+  white-space:nowrap;
+}
+
+@media(max-width:720px){
+  .revenue-detail-row{
+    grid-template-columns:minmax(0,1fr) auto;
+    padding:14px 18px;
+  }
+  .revenue-detail-row>div:last-child{
+    grid-column:1/-1;
+  }
+  .revenue-detail-header{padding:18px 18px 14px}
+  .revenue-detail-total{font-size:27px}
+}
