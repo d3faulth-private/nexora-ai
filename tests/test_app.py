@@ -828,7 +828,19 @@ def test_internal_seed_uses_neutral_hvac_workspace_and_mock_connectors(monkeypat
     from sqlalchemy.orm import Session
 
     from app.db import Base
-    from app.models import Connector, Lead, WorkspaceProfile
+    from app.models import (
+        Activity,
+        Appointment,
+        Approval,
+        AutomationJob,
+        Connector,
+        Conversation,
+        ConversationControl,
+        Lead,
+        RevenueEvent,
+        Task,
+        WorkspaceProfile,
+    )
     import app.seed as seed_module
 
     engine = create_engine("sqlite:///:memory:")
@@ -852,10 +864,42 @@ def test_internal_seed_uses_neutral_hvac_workspace_and_mock_connectors(monkeypat
             select(WorkspaceProfile).where(WorkspaceProfile.workspace_id == workspace.id)
         )
         assert profile is not None
-        assert profile.onboarding_completed is False
+        assert profile.onboarding_completed is True
+        assert profile.service_area == "10001-10020"
+        assert profile.booking_duration_minutes == 90
 
-        assert int(db.scalar(select(func.count(Lead.id))) or 0) == 3
+        assert int(db.scalar(select(func.count(Lead.id))) or 0) == 12
+        assert int(db.scalar(select(func.count(Conversation.id))) or 0) == 8
+        assert int(db.scalar(select(func.count(Appointment.id))) or 0) == 4
+        assert int(db.scalar(select(func.count(Task.id))) or 0) == 3
+        assert int(db.scalar(select(func.count(Approval.id))) or 0) == 1
+        assert int(db.scalar(select(func.count(Activity.id))) or 0) == 20
+        assert int(
+            db.scalar(
+                select(func.count(AutomationJob.id)).where(
+                    AutomationJob.status == "pending"
+                )
+            )
+            or 0
+        ) == 2
+        assert int(
+            db.scalar(
+                select(func.count(ConversationControl.id)).where(
+                    ConversationControl.mode == "human"
+                )
+            )
+            or 0
+        ) == 1
+        assert int(db.scalar(select(func.count(RevenueEvent.id))) or 0) == 7
         assert set(db.scalars(select(Connector.mode))) == {"mock"}
+
+        from app.revenue import revenue_summary
+
+        revenue = revenue_summary(db, workspace.id)
+        assert revenue["booked_pipeline"] == 9250
+        assert revenue["completed_revenue"] == 7800
+        assert revenue["recovered_revenue"] == 5000
+        assert revenue["open_opportunity"] == 14470
 
 
 def test_demo_mode_blocks_real_connector_credentials():
@@ -1039,3 +1083,94 @@ def test_revenue_cards_are_clickable_and_viewport_safe():
     assert ".metric-action" in css
     assert ".revenue-detail-dialog" in css
     assert "max-height:62dvh" in css
+
+
+
+def test_operational_workspace_reset_restores_standard_dataset(monkeypatch):
+    from types import SimpleNamespace
+
+    from sqlalchemy import create_engine, func, select
+    from sqlalchemy.orm import Session
+
+    from app.db import Base
+    from app.models import Activity, Appointment, Approval, AutomationJob, Lead
+    from app.revenue import revenue_summary
+    import app.seed as seed_module
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    fake = SimpleNamespace(
+        app_env="development",
+        demo_mode=True,
+        demo_email="admin@nexora.local",
+        demo_password="nexora-demo",
+        default_timezone="America/New_York",
+    )
+    monkeypatch.setattr(seed_module, "get_settings", lambda: fake)
+
+    with Session(engine) as db:
+        workspace = seed_module.seed_workspace(db)
+        db.add(
+            Lead(
+                workspace_id=workspace.id,
+                name="Temporary Test Lead",
+                stage="new",
+                estimated_value=99999,
+            )
+        )
+        db.commit()
+        assert int(db.scalar(select(func.count(Lead.id))) or 0) == 13
+
+        workspace = seed_module.reset_operational_workspace(db)
+
+        assert int(db.scalar(select(func.count(Lead.id))) or 0) == 12
+        assert db.scalar(
+            select(Lead.id).where(Lead.name == "Temporary Test Lead")
+        ) is None
+        assert int(db.scalar(select(func.count(Appointment.id))) or 0) == 4
+        assert int(db.scalar(select(func.count(Approval.id))) or 0) == 1
+        assert int(db.scalar(select(func.count(Activity.id))) or 0) == 20
+        assert int(
+            db.scalar(
+                select(func.count(AutomationJob.id)).where(
+                    AutomationJob.status == "pending"
+                )
+            )
+            or 0
+        ) == 2
+
+        revenue = revenue_summary(db, workspace.id)
+        assert revenue["booked_pipeline"] == 9250
+        assert revenue["completed_revenue"] == 7800
+        assert revenue["recovered_revenue"] == 5000
+        assert revenue["open_opportunity"] == 14470
+
+
+def test_workspace_reset_is_guarded_and_documented(monkeypatch):
+    from types import SimpleNamespace
+
+    import pytest
+
+    import app.seed as seed_module
+    from app.db import SessionLocal
+    from d3terminal.shell import OperatorShell
+
+    shell = OperatorShell()
+    assert "workspace reset" in shell._completer.words
+    assert "workspace reset --confirm" in shell._completer.words
+
+    original = seed_module.get_settings
+    try:
+        seed_module.get_settings = lambda: SimpleNamespace(
+            app_env="production",
+            demo_mode=False,
+            demo_email="",
+            demo_password="",
+            default_timezone="America/New_York",
+        )
+        with SessionLocal() as db:
+            with pytest.raises(RuntimeError, match="local development/test mode"):
+                seed_module.reset_operational_workspace(db)
+    finally:
+        seed_module.get_settings = original
