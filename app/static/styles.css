@@ -617,3 +617,183 @@ dialog::backdrop{background:#02070bc9}
   color:#b9aa7e;
   font-size:9px;
 }
+
+
+/* Final modal-system polish */
+.hidden{display:none!important}
+.setup-banner.hidden{display:none!important}
+body[data-mode="demo"] .setup-banner{display:none!important}
+
+*,*::before,*::after{box-sizing:border-box}
+input,textarea,select,button{max-width:100%}
+input,textarea,select{min-width:0}
+
+dialog:not(#onboardingDialog){
+  width:min(760px,calc(100vw - 24px));
+  max-width:calc(100vw - 24px);
+  max-height:calc(100vh - 24px);
+  max-height:calc(100dvh - 24px);
+  margin:auto;
+  overflow:hidden;
+}
+dialog:not(#onboardingDialog)[open]{display:block}
+dialog:not(#onboardingDialog)>.dialog-card{
+  width:100%;
+  max-width:none;
+  min-width:0;
+  max-height:calc(100vh - 24px);
+  max-height:calc(100dvh - 24px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+dialog:not(#onboardingDialog) .close{
+  z-index:4;
+}
+
+/* Lead workspace */
+#leadDialog{
+  width:min(1120px,calc(100vw - 24px));
+  max-width:1120px;
+}
+#leadDialog>.lead-dialog-card{
+  padding:0;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  overflow:hidden;
+}
+.lead-dialog-header{
+  position:relative;
+  padding:20px 24px 14px;
+  border-bottom:1px solid var(--line);
+  background:#0c1720;
+}
+.lead-dialog-header h2{
+  margin:4px 42px 2px 0;
+  line-height:1.2;
+}
+.lead-dialog-header .close{
+  position:absolute;
+  right:14px;
+  top:10px;
+}
+.lead-dialog-body{
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:18px 24px 24px;
+  scrollbar-gutter:stable;
+}
+.lead-dialog-card{width:100%;max-width:none}
+.lead-layout{
+  min-width:0;
+  align-items:start;
+}
+.lead-layout>*{min-width:0}
+.conversation-panel{min-width:0}
+.lead-summary{
+  flex-wrap:wrap;
+  row-gap:5px;
+  padding-right:36px;
+}
+.lead-actions{
+  flex-wrap:wrap;
+  align-items:center;
+}
+.conversation{
+  height:clamp(180px,32vh,320px);
+  min-height:180px;
+  max-height:320px;
+  margin:10px 0;
+  overflow:auto;
+}
+.message-compose{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:stretch;
+}
+.message-compose textarea{
+  width:100%;
+  min-width:0;
+  min-height:72px;
+  max-height:180px;
+  resize:vertical;
+}
+.message-compose button{
+  min-width:82px;
+  align-self:stretch;
+}
+.history-panel{
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.history-panel h3:first-child{margin-top:0}
+.history-panel h3:not(:first-child){margin-top:18px}
+.history-item{min-width:0;overflow-wrap:anywhere}
+
+/* Smaller dialogs */
+#newLeadDialog,
+#hubspotDialog,
+#webhookDialog,
+#revenueDialog,
+#confirmDialog,
+#availabilityDialog{
+  width:min(680px,calc(100vw - 24px));
+}
+#activationDialog{
+  width:min(840px,calc(100vw - 24px));
+}
+
+/* Keep action rows usable at zoomed/small viewports */
+.dialog-actions{
+  flex-wrap:wrap;
+}
+.dialog-actions button{
+  min-width:0;
+}
+.form-grid>*{min-width:0}
+
+@media(max-width:900px){
+  #leadDialog{width:min(760px,calc(100vw - 20px))}
+  .lead-layout{grid-template-columns:1fr}
+  .history-panel{
+    border-left:0;
+    border-top:1px solid var(--line);
+    padding:16px 0 0;
+    margin-top:16px;
+  }
+  .lead-dialog-header{padding:18px 20px 12px}
+  .lead-dialog-body{padding:16px 20px 20px}
+}
+
+@media(max-width:600px){
+  dialog:not(#onboardingDialog){
+    width:calc(100vw - 12px);
+    max-width:calc(100vw - 12px);
+    max-height:calc(100vh - 12px);
+    max-height:calc(100dvh - 12px);
+  }
+  dialog:not(#onboardingDialog)>.dialog-card{
+    max-height:calc(100vh - 12px);
+    max-height:calc(100dvh - 12px);
+  }
+  #leadDialog{width:calc(100vw - 12px)}
+  .lead-dialog-header{padding:16px 16px 11px}
+  .lead-dialog-body{padding:14px 16px 18px}
+  .message-compose{grid-template-columns:1fr}
+  .message-compose button{min-height:44px}
+  .lead-actions button{flex:1 1 auto}
+  .lead-summary{padding-right:0}
+}
+
+@media(max-height:720px){
+  .lead-dialog-header{padding-top:14px;padding-bottom:10px}
+  .lead-actions{margin:7px 0 0}
+  .lead-dialog-body{padding-top:12px;padding-bottom:14px}
+  .conversation{
+    height:clamp(150px,28vh,230px);
+    min-height:150px;
+    max-height:230px;
+  }
+  .message-compose textarea{min-height:58px}
+}
