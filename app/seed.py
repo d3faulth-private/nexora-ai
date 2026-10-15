@@ -103,16 +103,6 @@ def _find_demo_workspace(db: Session, settings) -> Workspace | None:
     )
 
 
-def _mark_demo_ready(db: Session, workspace: Workspace) -> None:
-    ensure_defaults(db, workspace, True)
-    profile = db.scalar(
-        select(WorkspaceProfile).where(WorkspaceProfile.workspace_id == workspace.id)
-    )
-    if profile and not profile.onboarding_completed:
-        profile.onboarding_completed = True
-        db.commit()
-
-
 def _seed_demo(db: Session) -> Workspace:
     settings = get_settings()
     workspace = _find_demo_workspace(db, settings)
