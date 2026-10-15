@@ -777,7 +777,7 @@ def test_live_mode_refuses_demo_seeded_database(monkeypatch):
 
 
 
-def test_onboarding_modal_is_viewport_safe_and_uses_sandbox_wording():
+def test_onboarding_modal_is_viewport_safe_and_demo_ui_is_customer_facing():
     from pathlib import Path
 
     html = Path("app/templates/index.html").read_text(encoding="utf-8")
@@ -795,13 +795,91 @@ def test_onboarding_modal_is_viewport_safe_and_uses_sandbox_wording():
     assert "Scheduling & follow-up" in html
     assert "Review & activate" in html
 
-    assert "{{ 'SANDBOX' if demo_mode else 'LIVE' }}" in html
-    assert "SANDBOX DATA" in html
-    assert "{{ 'SANDBOX' if demo_mode else 'LIVE' }}" in login
-    assert "Local demo mode is enabled" not in login
+    assert "Demo Mode" in html
+    assert "TRY NEXORA" in html
+    assert "Activate Nexora" in html
+    assert "Guided demo" in html
+    assert "Demo Mode" in login
+    assert "SANDBOX" not in html
+    assert "SANDBOX" not in login
+    assert "app_env|upper" not in html
+    assert "DEVELOPMENT" not in html
 
     assert "max-height:calc(100vh - 28px)" in css
     assert "overflow-y:auto" in css
     assert "grid-template-rows:auto auto minmax(0,1fr) auto" in css
     assert 'el("#wizardStepLabel").textContent' in js
     assert "validateWizardStep()" in js
+    assert "DEMO_STEPS" in js
+    assert "Safe simulation · no external account connected" in js
+
+
+
+def test_demo_seed_is_realistic_ready_and_simulated(monkeypatch):
+    from types import SimpleNamespace
+
+    from sqlalchemy import create_engine, func, select
+    from sqlalchemy.orm import Session
+
+    from app.db import Base
+    from app.models import Connector, Lead, WorkspaceProfile
+    import app.seed as seed_module
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    fake = SimpleNamespace(
+        demo_mode=True,
+        demo_email="admin@nexora.local",
+        demo_password="nexora-demo",
+        default_timezone="America/New_York",
+    )
+    monkeypatch.setattr(seed_module, "get_settings", lambda: fake)
+
+    with Session(engine) as db:
+        workspace = seed_module.seed_workspace(db)
+        assert workspace.name == "Northstar Heating & Air"
+        assert workspace.email == "service@northstar.example"
+        assert workspace.website == "https://northstar.example"
+
+        profile = db.scalar(
+            select(WorkspaceProfile).where(WorkspaceProfile.workspace_id == workspace.id)
+        )
+        assert profile is not None
+        assert profile.onboarding_completed is True
+
+        assert int(db.scalar(select(func.count(Lead.id))) or 0) == 3
+        assert set(db.scalars(select(Connector.mode))) == {"mock"}
+
+
+def test_demo_mode_blocks_real_connector_credentials():
+    with TestClient(app) as client:
+        login(client)
+
+        google = client.get("/api/connectors/google/start")
+        assert google.status_code == 403
+        assert "Demo Mode" in google.json()["detail"]
+
+        hubspot = client.post(
+            "/api/connectors/hubspot/connect",
+            json={"private_app_token": "demo-token-12345"},
+        )
+        assert hubspot.status_code == 403
+        assert "Demo Mode" in hubspot.json()["detail"]
+
+        webhook = client.post(
+            "/api/connectors/webhook/connect",
+            json={
+                "url": "https://example.com/hook",
+                "secret": "demo-secret-123456",
+            },
+        )
+        assert webhook.status_code == 403
+        assert "Demo Mode" in webhook.json()["detail"]
+
+        patch = client.patch(
+            "/api/connectors/google",
+            json={"mode": "real", "status": "connected"},
+        )
+        assert patch.status_code == 403
+        assert "simulated" in patch.json()["detail"].lower()
