@@ -937,3 +937,105 @@ def test_pasted_command_failures_stop_the_chain():
     shell_source = Path("d3terminal/shell.py").read_text(encoding="utf-8")
     assert "Remaining pasted commands were not executed because the previous command failed." in shell_source
     assert "if len(commands) > 1:" in shell_source
+
+
+
+def test_revenue_details_and_honest_pipeline_accounting():
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import Conversation, Message
+
+    with TestClient(app) as client:
+        login(client)
+        before = client.get("/api/revenue/summary").json()
+
+        lead_id = create_lead(client, "Recovered Revenue Detail")
+        qualified = client.post(
+            "/api/leads/" + str(lead_id) + "/message",
+            json={
+                "body": "Our AC stopped cooling and we need service tomorrow.",
+                "channel": "web",
+            },
+        )
+        assert qualified.status_code == 200
+
+        with SessionLocal() as db:
+            conversation = db.scalar(
+                select(Conversation).where(Conversation.lead_id == lead_id)
+            )
+            assert conversation is not None
+            db.add(
+                Message(
+                    conversation_id=conversation.id,
+                    direction="outbound",
+                    actor="followup",
+                    body="Following up on your service request.",
+                )
+            )
+            db.commit()
+
+        booked = client.post("/api/leads/" + str(lead_id) + "/book")
+        assert booked.status_code == 200
+
+        after_booking = client.get("/api/revenue/summary").json()
+        assert after_booking["booked_pipeline"] == before["booked_pipeline"] + 1200
+        assert after_booking["recovered_revenue"] == before["recovered_revenue"]
+
+        booked_details = client.get("/api/revenue/details")
+        assert booked_details.status_code == 200
+        booked_payload = booked_details.json()
+        booked_rows = booked_payload["booked_pipeline"]["items"]
+        assert any(
+            row["lead_id"] == lead_id and row["amount"] == 1200
+            for row in booked_rows
+        )
+
+        completed = client.post(
+            "/api/leads/" + str(lead_id) + "/complete-job",
+            json={"actual_amount": 1750},
+        )
+        assert completed.status_code == 200
+
+        after_completion = client.get("/api/revenue/summary").json()
+        assert after_completion["booked_pipeline"] == before["booked_pipeline"]
+        assert after_completion["completed_revenue"] == before["completed_revenue"] + 1750
+        assert after_completion["recovered_revenue"] == before["recovered_revenue"] + 1750
+
+        details = client.get("/api/revenue/details")
+        assert details.status_code == 200
+        payload = details.json()
+        assert payload["completed_revenue"]["total"] == after_completion["completed_revenue"]
+        assert payload["recovered_revenue"]["total"] == after_completion["recovered_revenue"]
+        assert any(
+            row["lead_id"] == lead_id and row["amount"] == 1750
+            for row in payload["completed_revenue"]["items"]
+        )
+        assert any(
+            row["lead_id"] == lead_id and row["amount"] == 1750
+            for row in payload["recovered_revenue"]["items"]
+        )
+
+
+def test_revenue_cards_are_clickable_and_viewport_safe():
+    from pathlib import Path
+
+    html = Path("app/templates/index.html").read_text(encoding="utf-8")
+    js = Path("app/static/app.js").read_text(encoding="utf-8")
+    css = Path("app/static/styles.css").read_text(encoding="utf-8")
+
+    assert 'id="revenueDetailDialog"' in html
+    assert 'id="revenueDetailTitle"' in html
+    assert 'id="revenueDetailList"' in html
+
+    assert 'data-action="revenue-detail"' in js
+    assert '"booked_pipeline"' in js
+    assert '"completed_revenue"' in js
+    assert '"recovered_revenue"' in js
+    assert '"open_opportunity"' in js
+    assert 'api("/api/revenue/details")' in js
+    assert "This is not confirmed revenue." in js
+
+    assert ".metric-action" in css
+    assert ".revenue-detail-dialog" in css
+    assert "max-height:62dvh" in css
