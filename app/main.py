@@ -569,7 +569,10 @@ def update_connector(
     item = db.scalar(select(Connector).where(Connector.workspace_id == workspace.id, Connector.slug == slug))
     if not item:
         raise HTTPException(404, "Connector not found")
-    for key, value in payload.model_dump(exclude_none=True).items():
+    updates = payload.model_dump(exclude_none=True)
+    if settings.demo_mode and updates.get("mode") not in {None, "mock"}:
+        raise HTTPException(403, "Demo Mode connectors must remain simulated.")
+    for key, value in updates.items():
         setattr(item, key, value)
     item.last_sync_at = datetime.now(timezone.utc)
     activity(db, workspace.id, "operations", "connector_updated", item.name + " connector updated.", "connector", item.id)
