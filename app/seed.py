@@ -170,7 +170,7 @@ def _seed_demo(db: Session) -> Workspace:
         KnowledgeEntry(
             workspace_id=workspace.id,
             title="Coverage area",
-            content="The demo company serves ZIP codes 10001 through 10020.",
+            content="Northstar Heating & Air serves ZIP codes 10001 through 10020.",
             tags="coverage,zip",
         ),
     ])
