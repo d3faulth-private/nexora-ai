@@ -69,7 +69,7 @@ class ServerRuntime:
         self,
         host: str = "127.0.0.1",
         port: int = 8000,
-        health_timeout: float = 6.0,
+        health_timeout: float = 15.0,
     ) -> bool:
         if self.running:
             return False
@@ -81,6 +81,9 @@ class ServerRuntime:
         self._new_log_file()
 
         assert self._log_handle is not None
+        project_root = Path(__file__).resolve().parents[1]
+        child_env = os.environ.copy()
+        child_env["PYTHONUNBUFFERED"] = "1"
         self.process = subprocess.Popen(
             [
                 sys.executable,
@@ -95,6 +98,8 @@ class ServerRuntime:
             stdout=self._log_handle,
             stderr=subprocess.STDOUT,
             text=True,
+            cwd=str(project_root),
+            env=child_env,
         )
 
         deadline = time.monotonic() + health_timeout
