@@ -26,8 +26,8 @@ CONNECTORS = [
     ("webhook", "Outbound Webhook"),
 ]
 
-DEMO_WORKSPACE_NAME = "Northstar Heating & Air"
-LEGACY_DEMO_WORKSPACE_NAME = "Nexora HVAC Demo"
+DEMO_WORKSPACE_NAME = "Nexora HVAC"
+LEGACY_DEMO_WORKSPACE_NAMES = {"Nexora HVAC Demo", "Northstar Heating & Air"}
 
 
 
@@ -98,7 +98,7 @@ def _find_demo_workspace(db: Session, settings) -> Workspace | None:
             return workspace
     return db.scalar(
         select(Workspace)
-        .where(Workspace.name.in_([DEMO_WORKSPACE_NAME, LEGACY_DEMO_WORKSPACE_NAME]))
+        .where(Workspace.name.in_([DEMO_WORKSPACE_NAME, *LEGACY_DEMO_WORKSPACE_NAMES]))
         .order_by(Workspace.id)
     )
 
@@ -117,20 +117,20 @@ def _seed_demo(db: Session) -> Workspace:
     settings = get_settings()
     workspace = _find_demo_workspace(db, settings)
     if workspace:
-        if workspace.name == LEGACY_DEMO_WORKSPACE_NAME:
+        if workspace.name in LEGACY_DEMO_WORKSPACE_NAMES:
             workspace.name = DEMO_WORKSPACE_NAME
-            if workspace.email == "hello@nexora-demo.local":
-                workspace.email = "service@northstar.example"
-            if workspace.website == "https://example.local":
-                workspace.website = "https://northstar.example"
-            if (workspace.knowledge_summary or "").startswith("Demo HVAC company."):
+            if workspace.email in {"hello@nexora-demo.local", "service@northstar.example"}:
+                workspace.email = "office@nexora.local"
+            if workspace.website in {"https://example.local", "https://northstar.example"}:
+                workspace.website = ""
+            if (workspace.knowledge_summary or "").startswith(("Demo HVAC company.", "Northstar Heating & Air")):
                 workspace.knowledge_summary = (
-                    "Northstar Heating & Air serves ZIP codes 10001-10020. "
+                    "Nexora HVAC serves ZIP codes 10001-10020. "
                     "Hours Mon-Sat 8am-7pm. Emergency requests are prioritized. "
                     "Never promise a fixed repair price before technician assessment."
                 )
             db.commit()
-        _mark_demo_ready(db, workspace)
+        ensure_defaults(db, workspace, True)
         db.refresh(workspace)
         return workspace
 
@@ -139,10 +139,10 @@ def _seed_demo(db: Session) -> Workspace:
         industry="HVAC",
         timezone=settings.default_timezone,
         phone="+1 212 555 0148",
-        email="service@northstar.example",
-        website="https://northstar.example",
+        email="office@nexora.local",
+        website="",
         knowledge_summary=(
-            "Northstar Heating & Air serves ZIP codes 10001-10020. "
+            "Nexora HVAC serves ZIP codes 10001-10020. "
             "Hours Mon-Sat 8am-7pm. Emergency requests are prioritized. "
             "Never promise a fixed repair price before technician assessment."
         ),
@@ -170,7 +170,7 @@ def _seed_demo(db: Session) -> Workspace:
         KnowledgeEntry(
             workspace_id=workspace.id,
             title="Coverage area",
-            content="Northstar Heating & Air serves ZIP codes 10001 through 10020.",
+            content="Nexora HVAC serves ZIP codes 10001 through 10020.",
             tags="coverage,zip",
         ),
     ])
@@ -213,7 +213,7 @@ def _seed_demo(db: Session) -> Workspace:
 
     db.commit()
     db.refresh(workspace)
-    _mark_demo_ready(db, workspace)
+    ensure_defaults(db, workspace, True)
     return workspace
 
 
@@ -227,7 +227,7 @@ def _seed_live(db: Session) -> Workspace:
                 User.email == settings.demo_email,
             )
         )
-        if workspace.name in {DEMO_WORKSPACE_NAME, LEGACY_DEMO_WORKSPACE_NAME} or demo_user:
+        if workspace.name in LEGACY_DEMO_WORKSPACE_NAMES or demo_user:
             raise RuntimeError(
                 "LIVE mode cannot reuse a demo-seeded database. "
                 "Configure a clean DATABASE_URL or migrate real business data explicitly."
