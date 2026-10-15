@@ -72,7 +72,13 @@ async function run(task, successMessage) {
   }
 }
 
-function metric(label, value, note) {
+function metric(label, value, note, revenueKind) {
+  if (revenueKind) {
+    return '<button type="button" class="metric metric-action" data-action="revenue-detail" data-revenue-kind="' +
+      esc(revenueKind) + '"><span>' + esc(label) + '</span><strong>' + esc(value) +
+      '</strong>' + (note ? '<small>' + esc(note) + '</small>' : '') +
+      '<em>View details →</em></button>';
+  }
   return '<div class="metric"><span>' + esc(label) + '</span><strong>' + esc(value) +
     '</strong>' + (note ? '<small>' + esc(note) + '</small>' : '') + '</div>';
 }
@@ -81,10 +87,10 @@ function renderMetrics() {
   const m = state.metrics;
   el("#metrics").innerHTML =
     metric("Leads", m.leads) +
-    metric("Booked pipeline", money(m.booked_pipeline), "Estimated booked value") +
-    metric("Completed revenue", money(m.completed_revenue), "Confirmed") +
-    metric("Recovered revenue", money(m.recovered_revenue), "Attributed to follow-up") +
-    metric("Open opportunity", money(m.open_opportunity), "Potential") +
+    metric("Booked pipeline", money(m.booked_pipeline), "Booked, not yet completed", "booked_pipeline") +
+    metric("Completed revenue", money(m.completed_revenue), "Confirmed actual revenue", "completed_revenue") +
+    metric("Recovered revenue", money(m.recovered_revenue), "Completed after Nexora follow-up", "recovered_revenue") +
+    metric("Open opportunity", money(m.open_opportunity), "Potential still available", "open_opportunity") +
     metric("Approvals", m.pending_approvals);
 }
 
@@ -99,6 +105,70 @@ function renderOpportunities() {
       '<button class="view" data-action="open-lead" data-lead="' + item.lead_id + '">Work lead</button>' +
     '</div>'
   ).join("") : emptyState("CLEAR", "No open revenue opportunities.");
+}
+
+const REVENUE_DETAIL_META = {
+  booked_pipeline: {
+    title: "Booked pipeline",
+    note: "Estimated value of jobs that are booked but not yet completed."
+  },
+  completed_revenue: {
+    title: "Completed revenue",
+    note: "Confirmed actual revenue recorded from completed jobs."
+  },
+  recovered_revenue: {
+    title: "Recovered revenue",
+    note: "Confirmed completed revenue from leads re-engaged by Nexora follow-up."
+  },
+  open_opportunity: {
+    title: "Open opportunity",
+    note: "Potential value still available across active leads. This is not confirmed revenue."
+  }
+};
+
+function revenueDetailRow(kind, item) {
+  const openButton = item.lead_id ?
+    '<button class="view" data-action="open-lead" data-lead="' + item.lead_id + '">Open lead</button>' : "";
+
+  if (kind === "open_opportunity") {
+    return '<div class="revenue-detail-row">' +
+      '<div class="revenue-detail-main"><strong>' + esc(item.name) + '</strong>' +
+      '<span>' + esc(item.issue || "No issue recorded") + '</span>' +
+      '<small>' + esc(String(item.stage || "").toUpperCase()) + ' · idle ' + esc(item.hours_idle) + 'h</small>' +
+      '<p>' + esc(item.recommended_action || "") + '</p></div>' +
+      '<div class="revenue-detail-amount">' + money(item.estimated_value) + '</div>' +
+      '<div>' + openButton + '</div></div>';
+  }
+
+  return '<div class="revenue-detail-row">' +
+    '<div class="revenue-detail-main"><strong>' + esc(item.name) + '</strong>' +
+    '<span>' + esc(item.issue || "No issue recorded") + '</span>' +
+    '<small>' + esc(String(item.stage || "").toUpperCase()) +
+      (item.created_at ? ' · ' + esc(timeText(item.created_at)) : '') + '</small>' +
+    (item.note ? '<p>' + esc(item.note) + '</p>' : '') + '</div>' +
+    '<div class="revenue-detail-amount">' + money(item.amount) + '</div>' +
+    '<div>' + openButton + '</div></div>';
+}
+
+async function openRevenueDetails(kind) {
+  const meta = REVENUE_DETAIL_META[kind];
+  if (!meta) return;
+
+  const data = await run(() => api("/api/revenue/details"));
+  const section = data[kind] || {total: 0, items: []};
+  el("#revenueDetailTitle").textContent = meta.title;
+  el("#revenueDetailTotal").textContent = money(section.total || 0);
+  el("#revenueDetailNote").textContent = meta.note;
+  el("#revenueDetailList").innerHTML = (section.items || []).length ?
+    section.items.map((item) => revenueDetailRow(kind, item)).join("") :
+    emptyState("CLEAR", "No records in this revenue category yet.");
+
+  const dialog = el("#revenueDetailDialog");
+  if (!dialog.open) dialog.showModal();
+  requestAnimationFrame(() => {
+    const body = dialog.querySelector(".revenue-detail-body");
+    if (body) body.scrollTop = 0;
+  });
 }
 
 function renderProfile() {
@@ -436,7 +506,11 @@ document.addEventListener("click", async (event) => {
 
   try {
     if (action === "open-lead") {
+      const revenueDialog = el("#revenueDetailDialog");
+      if (revenueDialog && revenueDialog.open) revenueDialog.close();
       await openLead(button.dataset.lead);
+    } else if (action === "revenue-detail") {
+      await openRevenueDetails(button.dataset.revenueKind);
     } else if (action === "toggle-agent") {
       await run(() => api("/api/agents/" + button.dataset.agent + "/toggle", {method: "POST"}));
       await refresh();
