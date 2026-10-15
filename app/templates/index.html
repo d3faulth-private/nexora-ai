@@ -43,11 +43,8 @@
   <main id="overview">
     <header>
       <div>
-        <div class="eyebrow">NEXORA WORKSPACE</div>
-        <div class="workspace-title-row">
-          <h1 id="workspaceName">{{ workspace.name }}</h1>
-          <span class="workspace-mode {{ 'demo' if demo_mode else 'live' }}">{{ 'Demo Mode' if demo_mode else 'Live' }}</span>
-        </div>
+        <div class="eyebrow">HVAC AI WORKFORCE</div>
+        <h1 id="workspaceName">{{ workspace.name }}</h1>
         <p class="muted" id="workspaceMeta">{{ workspace.industry }} · {{ workspace.timezone }}</p>
       </div>
       <div class="header-actions">
@@ -56,34 +53,11 @@
       </div>
     </header>
 
-    {% if demo_mode %}
-    <section id="demoExperience" class="demo-experience">
-      <div class="demo-experience-copy">
-        <div class="eyebrow">TRY NEXORA</div>
-        <h2>See the AI workforce handle an HVAC opportunity</h2>
-        <p>This workspace uses realistic sample data and safe simulated integrations. Nothing here contacts a real customer or external account.</p>
-        <div class="demo-experience-actions">
-          <button type="button" id="demoStartBtn">Start guided demo</button>
-          <button type="button" id="activateNexoraBtn" class="ghost">Activate Nexora</button>
-        </div>
-      </div>
-      <div class="demo-guide">
-        <div class="demo-guide-head">
-          <div>
-            <strong>Guided demo</strong>
-            <span id="demoGuideProgress">0 of 6 complete</span>
-          </div>
-          <button type="button" id="resetDemoGuide" class="link-button">Reset</button>
-        </div>
-        <div id="demoChecklist" class="demo-checklist"></div>
-      </div>
-    </section>
-    {% endif %}
 
     <div id="setupBanner" class="setup-banner hidden">
       <div>
         <strong>Finish business setup</strong>
-        <span>Nexora needs your services, coverage, hours and operating rules before going live.</span>
+        <span>Nexora needs your services, coverage, hours and operating rules before handling customer work.</span>
       </div>
       <button id="setupBannerBtn">Continue onboarding</button>
     </div>
@@ -154,7 +128,6 @@
     <section id="approvals">
       <div class="section-head">
         <div><div class="eyebrow">HUMAN CONTROL</div><h2>Approval queue</h2></div>
-        <button id="simulateApproval" class="ghost demo-only">Create sample approval</button>
       </div>
       <div class="panel" id="approvalList"></div>
     </section>
@@ -162,7 +135,6 @@
     <section id="connectors">
       <div class="section-head">
         <div><div class="eyebrow">INTEGRATIONS</div><h2>Google, HubSpot & webhook</h2></div>
-        <button id="runAutomations" class="ghost demo-only">Run due automations</button>
       </div>
       <div id="connectorGrid" class="connector-grid"></div>
     </section>
@@ -341,8 +313,8 @@
           <div class="step-heading">
             <div>
               <span class="step-kicker">STEP 5 OF 5</span>
-              <h3>Review & activate</h3>
-              <p>Review the operating profile before Nexora marks business setup complete.</p>
+              <h3>Review & finish</h3>
+              <p>Review the operating profile before saving business setup.</p>
             </div>
           </div>
           <div id="onboardingReview" class="review-card"></div>
@@ -362,27 +334,6 @@
         </div>
       </footer>
     </form>
-  </dialog>
-
-  <dialog id="activationDialog" class="activation-dialog">
-    <div class="dialog-card activation-card">
-      <button type="button" class="close" data-close="activationDialog" aria-label="Close activation">×</button>
-      <div class="eyebrow">LIVE ACTIVATION</div>
-      <h2>Bring Nexora into your business</h2>
-      <p class="activation-lead">Your Live workspace starts clean. Sample customers, sample revenue, and simulated integrations are never copied from Demo Mode.</p>
-      <div class="activation-grid">
-        <div><span>01</span><strong>Fresh workspace</strong><p>Your real business starts with zero sample customer data.</p></div>
-        <div><span>02</span><strong>Real integrations</strong><p>Connect Google, HubSpot, and approved business systems after activation.</p></div>
-        <div><span>03</span><strong>Pilot onboarding</strong><p>v0.5 activation is handled manually while we onboard the first HVAC customers.</p></div>
-      </div>
-      <div class="activation-note">
-        <strong>Ready to go live?</strong>
-        <span>Contact your Nexora pilot representative to activate a clean Live workspace.</span>
-      </div>
-      <div class="dialog-actions">
-        <button type="button" class="ghost" data-close="activationDialog">Keep exploring</button>
-      </div>
-    </div>
   </dialog>
 
   <dialog id="hubspotDialog">
