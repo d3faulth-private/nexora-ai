@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +16,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .automation import start_scheduler, stop_scheduler
 from .config import get_settings
 from .db import Base, SessionLocal, engine, get_db
-from .models import Agent, Approval, Appointment, AutomationJob, Connector, Conversation, KnowledgeEntry, Lead, Message, Task, User
+from .models import Agent, Approval, Appointment, AutomationJob, Connector, Conversation, KnowledgeEntry, Lead, Task, User
 from .schemas import AppointmentCreate, ConnectorUpdate, KnowledgeCreate, LeadCreate, LeadUpdate, ManagerCommand, MessageCreate
 from .revenue import record_booking_attribution
 from .seed import seed_demo
