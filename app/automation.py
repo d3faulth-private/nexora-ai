@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -242,15 +243,7 @@ def run_due_jobs_once() -> int:
     return processed
 
 
-def sync_gmail_once() -> dict:
-    # Lazy import avoids a circular dependency: inbox orchestration uses
-    # services, while services uses this module to schedule follow-up jobs.
-    from .inbox import sync_connected_gmail_once
-
-    return sync_connected_gmail_once(max_results=20)
-
-
-def start_scheduler() -> None:
+def start_scheduler(gmail_sync_job: Callable[[], object]) -> None:
     global _scheduler
     settings = get_settings()
     if not settings.automation_enabled or _scheduler is not None:
@@ -267,7 +260,7 @@ def start_scheduler() -> None:
         coalesce=True,
     )
     _scheduler.add_job(
-        sync_gmail_once,
+        gmail_sync_job,
         "interval",
         seconds=max(30, settings.gmail_poll_seconds),
         id="nexora_gmail_sync",
