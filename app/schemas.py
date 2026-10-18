@@ -14,7 +14,9 @@ class LeadCreate(BaseModel):
 
 
 class LeadUpdate(BaseModel):
-    stage: Literal["new", "contacted", "qualified", "booked", "completed", "lost", "support"] | None = None
+    stage: (
+        Literal["new", "contacted", "qualified", "booked", "completed", "lost", "support"] | None
+    ) = None
     urgency: Literal["normal", "high", "urgent"] | None = None
     issue: str | None = None
     estimated_value: float | None = None
