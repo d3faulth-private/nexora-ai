@@ -16,6 +16,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .automation import start_scheduler, stop_scheduler
 from .config import get_settings
 from .db import Base, SessionLocal, engine, get_db
+from .inbox import sync_connected_gmail_once
 from .models import Agent, Approval, Appointment, AutomationJob, Connector, Conversation, KnowledgeEntry, Lead, Task, User
 from .schemas import AppointmentCreate, ConnectorUpdate, KnowledgeCreate, LeadCreate, LeadUpdate, ManagerCommand, MessageCreate
 from .revenue import record_booking_attribution
@@ -43,7 +44,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         seed_demo(db)
-    start_scheduler()
+    start_scheduler(sync_connected_gmail_once)
     try:
         yield
     finally:
