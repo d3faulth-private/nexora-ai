@@ -371,6 +371,9 @@ def test_csrf_protects_authenticated_writes():
         )
         assert blocked.status_code == 403
 
+        router_blocked = client.post("/api/connectors/google/mock")
+        assert router_blocked.status_code == 403
+
 
 def test_takeover_cancels_followup_and_return_can_resume():
     from sqlalchemy import select
