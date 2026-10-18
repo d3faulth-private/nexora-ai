@@ -62,7 +62,9 @@ class Settings(BaseSettings):
             if not self.connector_encryption_key:
                 raise RuntimeError("CONNECTOR_ENCRYPTION_KEY is required in production.")
             if not self.bootstrap_admin_email or len(self.bootstrap_admin_password) < 12:
-                raise RuntimeError("BOOTSTRAP_ADMIN_EMAIL and a 12+ character BOOTSTRAP_ADMIN_PASSWORD are required in production.")
+                raise RuntimeError(
+                    "BOOTSTRAP_ADMIN_EMAIL and a 12+ character BOOTSTRAP_ADMIN_PASSWORD are required in production."
+                )
 
 
 @lru_cache
