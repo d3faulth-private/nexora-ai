@@ -345,12 +345,12 @@ def _sync_external_best_effort(db: Session, workspace: Workspace, lead: Lead) ->
             "lead",
             lead.id,
         )
-    except Exception:
+    except Exception as exc:
         logger.warning(
-            "HubSpot best-effort sync failed workspace_id=%s lead_id=%s",
+            "HubSpot best-effort sync failed workspace_id=%s lead_id=%s error_type=%s",
             workspace.id,
             lead.id,
-            exc_info=True,
+            type(exc).__name__,
         )
 
     try:
@@ -365,12 +365,12 @@ def _sync_external_best_effort(db: Session, workspace: Workspace, lead: Lead) ->
                 "urgency": lead.urgency,
             },
         )
-    except Exception:
+    except Exception as exc:
         logger.warning(
-            "Outbound webhook best-effort sync failed workspace_id=%s lead_id=%s",
+            "Outbound webhook best-effort sync failed workspace_id=%s lead_id=%s error_type=%s",
             workspace.id,
             lead.id,
-            exc_info=True,
+            type(exc).__name__,
         )
 
 
