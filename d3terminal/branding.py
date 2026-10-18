@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import sys
 
+from prompt_toolkit.formatted_text import FormattedText
+
 from .theme import prompt_tokens
 
 
@@ -53,7 +55,7 @@ def banner(environment: str = "development") -> str:
     )
 
 
-def prompt(environment: str = "development"):
+def prompt(environment: str = "development") -> FormattedText:
     return prompt_tokens(environment, PROJECT_SLUG)
 
 
