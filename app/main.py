@@ -22,7 +22,7 @@ from .schemas import AppointmentCreate, ConnectorUpdate, KnowledgeCreate, LeadCr
 from .revenue import record_booking_attribution
 from .seed import seed_demo
 from .security import csrf_token, csrf_valid, clear_login_failures, login_blocked, login_key, record_login_failure
-from .api.routes import router as api_router
+from .api.routes import require_workspace_context, router as api_router
 from .services import (
     activity,
     authenticate,
@@ -109,24 +109,6 @@ def session_user(request: Request, db: Session) -> User | None:
         request.session.clear()
         return None
     return user
-
-
-def require_user(request: Request, db: Session) -> User:
-    user = session_user(request, db)
-    if not user:
-        raise HTTPException(401, "Authentication required")
-    return user
-
-
-def require_workspace(request: Request, db: Session):
-    user = require_user(request, db)
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-        if not csrf_valid(request.session.get("csrf_token"), request.headers.get("X-Nexora-CSRF")):
-            raise HTTPException(403, "Invalid CSRF token")
-    workspace = get_workspace(db, user.workspace_id)
-    if not workspace:
-        raise HTTPException(404, "Workspace not found")
-    return user, workspace
 
 
 @app.get("/health")
@@ -242,7 +224,7 @@ def home(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/api/me")
 def api_me(request: Request, db: Session = Depends(get_db)):
-    user, workspace = require_workspace(request, db)
+    user, workspace = require_workspace_context(request, db)
     return {
         "user": {"id": user.id, "email": user.email, "name": user.name, "role": user.role},
         "workspace": {"id": workspace.id, "name": workspace.name, "industry": workspace.industry},
@@ -253,13 +235,13 @@ def api_me(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/api/dashboard")
 def api_dashboard(request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     return dashboard(db, workspace)
 
 
 @app.post("/api/leads")
 def create_lead(payload: LeadCreate, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     lead = Lead(workspace_id=workspace.id, **payload.model_dump())
     db.add(lead)
     db.flush()
@@ -271,7 +253,7 @@ def create_lead(payload: LeadCreate, request: Request, db: Session = Depends(get
 
 @app.patch("/api/leads/{lead_id}")
 def update_lead(lead_id: int, payload: LeadUpdate, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     lead = db.scalar(select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id))
     if not lead:
         raise HTTPException(404, "Lead not found")
@@ -297,7 +279,7 @@ def update_lead(lead_id: int, payload: LeadUpdate, request: Request, db: Session
 
 @app.get("/api/leads/{lead_id}")
 def get_lead(lead_id: int, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     lead = db.scalar(select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id))
     if not lead:
         raise HTTPException(404, "Lead not found")
@@ -354,7 +336,7 @@ def lead_message(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     lead = db.scalar(select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id))
     if not lead:
         raise HTTPException(404, "Lead not found")
@@ -383,13 +365,13 @@ def lead_message(
 
 @app.post("/api/manager/run")
 def manager_run(payload: ManagerCommand, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     return run_manager(db, workspace, payload.objective)
 
 
 @app.post("/api/agents/{slug}/toggle")
 def toggle_agent(slug: str, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     agent = db.scalar(select(Agent).where(Agent.workspace_id == workspace.id, Agent.slug == slug))
     if not agent:
         raise HTTPException(404, "Agent not found")
@@ -409,7 +391,7 @@ def toggle_agent(slug: str, request: Request, db: Session = Depends(get_db)):
 
 @app.post("/api/agents/{slug}/autonomy/{level}")
 def set_autonomy(slug: str, level: str, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     if level not in {"manual", "guarded", "autonomous"}:
         raise HTTPException(400, "Invalid autonomy level")
     agent = db.scalar(select(Agent).where(Agent.workspace_id == workspace.id, Agent.slug == slug))
@@ -431,7 +413,7 @@ def set_autonomy(slug: str, level: str, request: Request, db: Session = Depends(
 
 @app.post("/api/actions/request")
 def request_sensitive_action(payload: dict, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     action_type = str(payload.get("action_type") or "")
     agent_slug = str(payload.get("agent_slug") or "manager")
     if not action_type:
@@ -448,7 +430,7 @@ def request_sensitive_action(payload: dict, request: Request, db: Session = Depe
 
 @app.post("/api/approvals/{approval_id}/resolve")
 def resolve_approval(approval_id: int, payload: dict, request: Request, db: Session = Depends(get_db)):
-    user, workspace = require_workspace(request, db)
+    user, workspace = require_workspace_context(request, db)
     decision = str(payload.get("decision") or "")
     if decision not in {"approved", "rejected"}:
         raise HTTPException(400, "Decision must be approved or rejected")
@@ -479,7 +461,7 @@ def resolve_approval(approval_id: int, payload: dict, request: Request, db: Sess
 
 @app.post("/api/appointments")
 def create_appointment(payload: AppointmentCreate, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     lead = db.scalar(select(Lead).where(Lead.id == payload.lead_id, Lead.workspace_id == workspace.id))
     if not lead:
         raise HTTPException(404, "Lead not found")
@@ -516,7 +498,7 @@ def create_appointment(payload: AppointmentCreate, request: Request, db: Session
 
 @app.get("/api/knowledge")
 def list_knowledge(request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     entries = list(
         db.scalars(
             select(KnowledgeEntry)
@@ -538,7 +520,7 @@ def list_knowledge(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/api/knowledge")
 def create_knowledge(payload: KnowledgeCreate, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     entry = KnowledgeEntry(workspace_id=workspace.id, **payload.model_dump())
     db.add(entry)
     db.flush()
@@ -550,7 +532,7 @@ def create_knowledge(payload: KnowledgeCreate, request: Request, db: Session = D
 
 @app.get("/api/connectors")
 def list_connectors(request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     items = list(db.scalars(select(Connector).where(Connector.workspace_id == workspace.id).order_by(Connector.id)))
     return [
         {"id": item.id, "slug": item.slug, "name": item.name, "status": item.status, "mode": item.mode}
@@ -565,7 +547,7 @@ def update_connector(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     item = db.scalar(select(Connector).where(Connector.workspace_id == workspace.id, Connector.slug == slug))
     if not item:
         raise HTTPException(404, "Connector not found")
@@ -582,7 +564,7 @@ def update_connector(
 
 @app.post("/api/tasks")
 def create_task(payload: dict, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     title = str(payload.get("title") or "").strip()
     if not title:
         raise HTTPException(400, "Task title is required")
@@ -605,7 +587,7 @@ def create_task(payload: dict, request: Request, db: Session = Depends(get_db)):
 
 @app.post("/api/tasks/{task_id}/complete")
 def complete_task(task_id: int, request: Request, db: Session = Depends(get_db)):
-    _, workspace = require_workspace(request, db)
+    _, workspace = require_workspace_context(request, db)
     task = db.scalar(select(Task).where(Task.id == task_id, Task.workspace_id == workspace.id))
     if not task:
         raise HTTPException(404, "Task not found")
