@@ -13,7 +13,7 @@ class AgentDecision:
     stage: str | None = None
     urgency: str | None = None
     actions: list[str] | None = None
-    proposal: dict | None = None
+    proposal: dict[str, object] | None = None
     ai: AIResponse | None = None
 
 
