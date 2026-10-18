@@ -67,3 +67,12 @@ This log records significant product and engineering decisions. New decisions ar
 **Why:** The goal is to prevent new debt while preserving working behavior and keeping changes reviewable.
 
 **Rejected:** Repository-wide style rewrite mixed with logic changes.
+
+
+## 2026-10-17 — Pre-observability logging convention
+
+**Decision:** Until Phase 4 introduces structured logging, use Python's standard `logging` module. Best-effort integration failures must either be persisted in operational state or logged with non-PII identifiers only.
+
+**Why:** Silent integration failures are unacceptable for a paid pilot, but introducing a full observability stack before the dedicated phase would be premature.
+
+**Rejected for now:** JSON logging/correlation infrastructure in Phase 1, and logging customer message bodies, email addresses, tokens, or connector secrets.
