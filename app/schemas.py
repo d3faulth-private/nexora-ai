@@ -3,11 +3,6 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
-
 class LeadCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     email: str | None = None
@@ -38,16 +33,6 @@ class ManagerCommand(BaseModel):
     objective: str = Field(min_length=1, max_length=1000)
 
 
-class WorkspaceUpdate(BaseModel):
-    name: str | None = None
-    industry: str | None = None
-    timezone: str | None = None
-    phone: str | None = None
-    email: str | None = None
-    website: str | None = None
-    knowledge_summary: str | None = None
-
-
 class OnboardingUpdate(BaseModel):
     business_name: str = Field(min_length=1, max_length=160)
     industry: Literal["HVAC"] = "HVAC"
@@ -75,10 +60,6 @@ class KnowledgeCreate(BaseModel):
     title: str = Field(min_length=1, max_length=180)
     content: str = Field(min_length=1)
     tags: str = ""
-
-
-class ApprovalResolve(BaseModel):
-    decision: str = Field(pattern="^(approved|rejected)$")
 
 
 class ConnectorUpdate(BaseModel):
