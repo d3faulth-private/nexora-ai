@@ -16,7 +16,7 @@ from app.db import Base, SessionLocal, engine
 from app.seed import reset_operational_workspace, seed_demo
 
 from . import diagnostics
-from .branding import VERSION, banner, fail, info, ok, prompt, warn
+from .branding import VERSION, banner, prompt
 from .runtime import ServerRuntime
 from .theme import D3_STYLE, message_tokens
 
