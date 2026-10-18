@@ -63,9 +63,10 @@ class OpenAICompatibleProvider(AIProvider):
                     units=units,
                     estimated_cost=0,
                 )
-        except Exception:
+        except Exception as exc:
             logger.warning(
-                "LLM provider request failed; using deterministic fallback", exc_info=True
+                "LLM provider request failed; using deterministic fallback error_type=%s",
+                type(exc).__name__,
             )
             return AIResponse(text=fallback, provider="fallback", model="deterministic")
 
