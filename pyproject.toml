@@ -73,7 +73,6 @@ exclude = ["migrations"]
 # typing debt is paid down incrementally; new modules must not join this list.
 [[tool.mypy.overrides]]
 module = [
-  "app.agents",
   "app.automation",
   "app.db",
   "app.hvac",
