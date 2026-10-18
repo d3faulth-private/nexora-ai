@@ -83,13 +83,13 @@ def sync_workspace_gmail(
 
         try:
             gmail_mark_read(db, workspace.id, str(incoming.get("id") or ""))
-        except Exception:
+        except Exception as exc:
             # Delivery/processing already succeeded. Leaving Gmail unread should
             # not duplicate the customer workflow because the event is processed.
             logger.warning(
-                "Gmail mark-read failed workspace_id=%s",
+                "Gmail mark-read failed workspace_id=%s error_type=%s",
                 workspace.id,
-                exc_info=True,
+                type(exc).__name__,
             )
         db.commit()
 
@@ -122,13 +122,13 @@ def sync_connected_gmail_once(max_results: int = 20) -> dict:
                 result = sync_workspace_gmail(db, workspace, max_results=max_results)
                 fetched += int(result["fetched"])
                 synced += 1
-            except Exception:
+            except Exception as exc:
                 db.rollback()
                 failures += 1
                 logger.warning(
-                    "Gmail workspace sync failed workspace_id=%s",
+                    "Gmail workspace sync failed workspace_id=%s error_type=%s",
                     workspace_id,
-                    exc_info=True,
+                    type(exc).__name__,
                 )
 
     return {
