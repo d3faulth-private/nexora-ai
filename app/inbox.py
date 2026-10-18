@@ -86,7 +86,11 @@ def sync_workspace_gmail(
         except Exception:
             # Delivery/processing already succeeded. Leaving Gmail unread should
             # not duplicate the customer workflow because the event is processed.
-            pass
+            logger.warning(
+                "Gmail mark-read failed workspace_id=%s",
+                workspace.id,
+                exc_info=True,
+            )
         db.commit()
 
     return {
