@@ -1,0 +1,27 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+        files: ^(app/(ai|config|policy|schemas|security|vault)\.py|d3terminal/(branding|theme)\.py)$
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args:
+          - --exclude-files
+          - ^\.env\.example$
+          - --exclude-secrets
+          - ^(nexora-demo|demo-password|strong-password-123|demo-token-12345|demo-secret-123456|super-secret-token|hunter2|local-development-secret-change-me|nexora)$
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (gradual strict gate)
+        entry: python -m mypy
+        language: system
+        pass_filenames: false
+        types: [python]
