@@ -29,12 +29,12 @@ For production set `DEMO_MODE=false`, strong bootstrap owner credentials, a stro
 ```bash
 git clone https://github.com/d3faulth-private/nexora-ai.git
 cd nexora-ai
-git checkout v0.5-pilot
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
 cp .env.example .env
 python scripts/migrate.py
+pre-commit install
 nexora
 ```
 
@@ -85,14 +85,29 @@ HubSpot private app credentials and webhook credentials are encrypted before sto
 
 v0.5 includes CSRF protection, login throttling, expiring sessions, secure production cookies, security headers/CSP, safe customer-facing error pages, encrypted connector credentials, OAuth-state verification, workspace-isolation tests, automation stop conditions, secret-safe operator logs, and an Alembic migration baseline.
 
-## Tests
+## Development quality gates
+
+Install the development extras and local commit hooks once:
 
 ```bash
+python -m pip install -e ".[dev]"
+pre-commit install
+```
+
+Run the same foundational checks used in CI:
+
+```bash
+python -m ruff check .
+python -m mypy
 python -m pytest
 python scripts/migrate.py
 python -m compileall -q app d3terminal migrations scripts
 node --check app/static/app.js
 ```
+
+Ruff formatting and strict mypy are being adopted incrementally to avoid mixing a repository-wide reformat with behavior changes. The current typing debt list is explicit in `pyproject.toml`.
+
+Significant product and architecture choices are recorded in [DECISIONS.md](DECISIONS.md).
 
 ## Commercial rule
 
