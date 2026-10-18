@@ -143,6 +143,4 @@ def manager_intent(objective: str) -> str:
         return "show_leads"
     if "approval" in value:
         return "show_approvals"
-    if "task" in value and ("create" in value or "add" in value):
-        return "create_task"
     return "summary"
