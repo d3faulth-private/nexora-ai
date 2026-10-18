@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 
 import httpx
 
 from .config import get_settings
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -27,7 +31,7 @@ class LocalProvider(AIProvider):
 
 
 class OpenAICompatibleProvider(AIProvider):
-    def __init__(self):
+    def __init__(self) -> None:
         self.settings = get_settings()
 
     def generate(self, system: str, user: str, fallback: str) -> AIResponse:
@@ -60,6 +64,7 @@ class OpenAICompatibleProvider(AIProvider):
                     estimated_cost=0,
                 )
         except Exception:
+            logger.warning("LLM provider request failed; using deterministic fallback", exc_info=True)
             return AIResponse(text=fallback, provider="fallback", model="deterministic")
 
 
