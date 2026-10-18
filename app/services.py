@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
@@ -32,6 +33,9 @@ from .models import (
 from .policy import evaluate_action
 from .revenue import opportunity_list, revenue_summary
 from .security import verify_password
+
+
+logger = logging.getLogger(__name__)
 
 
 def activity(
@@ -342,7 +346,12 @@ def _sync_external_best_effort(db: Session, workspace: Workspace, lead: Lead) ->
             lead.id,
         )
     except Exception:
-        pass
+        logger.warning(
+            "HubSpot best-effort sync failed workspace_id=%s lead_id=%s",
+            workspace.id,
+            lead.id,
+            exc_info=True,
+        )
 
     try:
         signed_webhook(
@@ -357,7 +366,12 @@ def _sync_external_best_effort(db: Session, workspace: Workspace, lead: Lead) ->
             },
         )
     except Exception:
-        pass
+        logger.warning(
+            "Outbound webhook best-effort sync failed workspace_id=%s lead_id=%s",
+            workspace.id,
+            lead.id,
+            exc_info=True,
+        )
 
 
 def process_customer_message(
