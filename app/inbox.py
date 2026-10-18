@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from email.utils import parseaddr
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -9,6 +10,9 @@ from .connectors.providers import gmail_mark_read, gmail_pull_unread
 from .db import SessionLocal
 from .models import Connector, ExternalEvent, Lead, Workspace
 from .services import process_customer_message
+
+
+logger = logging.getLogger(__name__)
 
 
 def sync_workspace_gmail(
@@ -117,6 +121,11 @@ def sync_connected_gmail_once(max_results: int = 20) -> dict:
             except Exception:
                 db.rollback()
                 failures += 1
+                logger.warning(
+                    "Gmail workspace sync failed workspace_id=%s",
+                    workspace_id,
+                    exc_info=True,
+                )
 
     return {
         "workspaces": synced,
