@@ -64,7 +64,9 @@ class OpenAICompatibleProvider(AIProvider):
                     estimated_cost=0,
                 )
         except Exception:
-            logger.warning("LLM provider request failed; using deterministic fallback", exc_info=True)
+            logger.warning(
+                "LLM provider request failed; using deterministic fallback", exc_info=True
+            )
             return AIResponse(text=fallback, provider="fallback", model="deterministic")
 
 
