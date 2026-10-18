@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from typing import Any, cast
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -30,14 +31,14 @@ def _fernet() -> Fernet:
     return Fernet(base64.urlsafe_b64encode(digest))
 
 
-def encrypt_json(value: dict) -> str:
+def encrypt_json(value: dict[str, Any]) -> str:
     data = json.dumps(value, separators=(",", ":")).encode("utf-8")
     return _fernet().encrypt(data).decode("utf-8")
 
 
-def decrypt_json(blob: str) -> dict:
+def decrypt_json(blob: str) -> dict[str, Any]:
     try:
         decoded = _fernet().decrypt(blob.encode("utf-8"))
-        return json.loads(decoded.decode("utf-8"))
+        return cast(dict[str, Any], json.loads(decoded.decode("utf-8")))
     except InvalidToken as exc:
         raise VaultUnavailable("Connector credential could not be decrypted.") from exc
