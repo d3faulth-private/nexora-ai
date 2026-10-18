@@ -53,7 +53,7 @@ router = APIRouter()
 settings = get_settings()
 
 
-def context(request: Request, db: Session):
+def require_workspace_context(request: Request, db: Session):
     user_id = request.session.get("user_id")
     if not user_id:
         raise HTTPException(401, "Authentication required")
@@ -80,7 +80,7 @@ def require_live_integrations() -> None:
 
 @router.get("/api/onboarding")
 def onboarding_state(request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     profile = get_profile(db, workspace.id)
     return {
         "workspace": {
@@ -102,7 +102,7 @@ def save_onboarding(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     profile = upsert_profile(db, workspace, payload.model_dump())
     return {
         "ok": True,
@@ -113,7 +113,7 @@ def save_onboarding(
 
 @router.post("/api/leads/{lead_id}/takeover")
 def takeover(lead_id: int, request: Request, db: Session = Depends(get_db)):
-    user, workspace = context(request, db)
+    user, workspace = require_workspace_context(request, db)
     lead = db.scalar(
         select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id)
     )
@@ -128,7 +128,7 @@ def takeover(lead_id: int, request: Request, db: Session = Depends(get_db)):
 
 @router.post("/api/leads/{lead_id}/return-to-ai")
 def return_to_ai(lead_id: int, request: Request, db: Session = Depends(get_db)):
-    user, workspace = context(request, db)
+    user, workspace = require_workspace_context(request, db)
     lead = db.scalar(
         select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id)
     )
@@ -148,7 +148,7 @@ def human_message(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    user, workspace = context(request, db)
+    user, workspace = require_workspace_context(request, db)
     lead = db.scalar(
         select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id)
     )
@@ -169,7 +169,7 @@ def human_message(
 
 @router.get("/api/connectors/google/start")
 def google_start(request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     require_live_integrations()
     state = secrets.token_urlsafe(32)
     request.session["google_oauth_state"] = state
@@ -188,7 +188,7 @@ def google_callback(
     state: str,
     db: Session = Depends(get_db),
 ):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     require_live_integrations()
     expected = request.session.pop("google_oauth_state", None)
     expected_workspace = request.session.pop("google_oauth_workspace_id", None)
@@ -224,7 +224,7 @@ def hubspot_connect(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     require_live_integrations()
     try:
         set_secret(
@@ -263,7 +263,7 @@ def webhook_connect(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     require_live_integrations()
     try:
         set_secret(
@@ -288,7 +288,7 @@ def webhook_connect(
 
 @router.post("/api/connectors/{slug}/mock")
 def connector_mock(slug: str, request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     if not settings.demo_mode:
         raise HTTPException(403, "Mock connectors are disabled in live mode.")
     item = mark_connector(
@@ -304,7 +304,7 @@ def connector_mock(slug: str, request: Request, db: Session = Depends(get_db)):
 
 @router.post("/api/connectors/gmail/sync")
 def gmail_sync(request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     require_live_integrations()
     try:
         return sync_workspace_gmail(db, workspace, max_results=20)
@@ -317,7 +317,7 @@ def gmail_sync(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/api/leads/{lead_id}/book")
 def book_lead(lead_id: int, request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     lead = db.scalar(
         select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id)
     )
@@ -405,7 +405,7 @@ def book_lead(lead_id: int, request: Request, db: Session = Depends(get_db)):
 
 @router.post("/api/automation/run-due")
 def run_automation_now(request: Request, db: Session = Depends(get_db)):
-    context(request, db)
+    require_workspace_context(request, db)
     return {"processed": run_due_jobs_once()}
 
 
@@ -471,19 +471,19 @@ def external_intake(
 
 @router.get("/api/revenue/summary")
 def revenue_report(request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     return revenue_summary(db, workspace.id)
 
 
 @router.get("/api/revenue/details")
 def revenue_detail_report(request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     return revenue_details(db, workspace.id)
 
 
 @router.get("/api/opportunities")
 def opportunities(request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     items = opportunity_list(db, workspace.id, limit=20)
     return {
         "count": len(items),
@@ -499,7 +499,7 @@ def complete_job(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     lead = db.scalar(
         select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id)
     )
@@ -581,7 +581,7 @@ def availability(
     count: int = 3,
     db: Session = Depends(get_db),
 ):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     profile = get_profile(db, workspace.id)
     duration = profile.booking_duration_minutes if profile else 60
 
@@ -613,7 +613,7 @@ def availability(
 
 @router.post("/api/connectors/{slug}/test")
 def connector_test(slug: str, request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     try:
         result = test_connector(db, workspace.id, slug)
         item = mark_connector(db, workspace.id, slug, status="connected", mode=(connector(db, workspace.id, slug).mode if connector(db, workspace.id, slug) else "real"))
@@ -627,7 +627,7 @@ def connector_test(slug: str, request: Request, db: Session = Depends(get_db)):
 
 @router.post("/api/connectors/{slug}/disconnect")
 def connector_disconnect(slug: str, request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     if slug not in {"google", "hubspot", "webhook"}:
         raise HTTPException(404, "Unknown connector.")
     disconnect_connector(db, workspace.id, slug)
@@ -636,7 +636,7 @@ def connector_disconnect(slug: str, request: Request, db: Session = Depends(get_
 
 @router.get("/api/customers/{lead_id}/history")
 def customer_history(lead_id: int, request: Request, db: Session = Depends(get_db)):
-    _, workspace = context(request, db)
+    _, workspace = require_workspace_context(request, db)
     lead = db.scalar(select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace.id))
     if not lead:
         raise HTTPException(404, "Lead not found")
